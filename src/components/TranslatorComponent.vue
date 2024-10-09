@@ -240,4 +240,10 @@ const clearAll = () => {
 .clear-button {
   margin-left: 10px; /* 调整清空按钮与翻译按钮的间距 */
 }
+
+.settings-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+}
 </style>
