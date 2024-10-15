@@ -108,7 +108,12 @@ const translate = async () => {
     isTranslating.value = true;
     let success = false;
 
-    for (const apiUrl of apiUrls.value) {
+    // 使用轮询算法选择API
+    const currentApiIndex = ref(0);
+    const totalApis = apiUrls.value.length;
+
+    for (let i = 0; i < totalApis; i++) {
+        const apiUrl = apiUrls.value[currentApiIndex.value];
         try {
             const response = await axios.post(apiUrl.url, {
                 text: sourceText.value,
@@ -125,12 +130,17 @@ const translate = async () => {
             break;
         } catch (error) {
             console.error('Translation failed:', error);
+            // 如果当前API失败，尝试下一个
+            currentApiIndex.value = (currentApiIndex.value + 1) % totalApis;
         }
     }
 
     if (!success) {
         ElMessage.error('翻译失败，请检查 API 地址或网络连接');
     }
+
+    // 更新下一次请求的API索引
+    currentApiIndex.value = (currentApiIndex.value + 1) % totalApis;
 
     isTranslating.value = false;
 };
