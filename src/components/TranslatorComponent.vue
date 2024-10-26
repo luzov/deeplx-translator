@@ -305,12 +305,7 @@ const enabledSourceLangs = computed(() => sourceLangs.value.filter(lang => lang.
 const enabledTargetLangs = computed(() => targetLangs.value.filter(lang => lang.enabled));
 
 
-// 添加响应类型接口
-interface TranslationResponse {
-    data: string;
-    alternatives?: string[];
-    method: string;
-}
+
 
 // 修改格式化API URL的辅助函数
 const formatProxyUrl = (originalUrl: string) => {
@@ -474,7 +469,7 @@ const addApiUrl = async () => {
 
     // 去除api前后空格
     newApiUrl.value = newApiUrl.value.trim();
-    
+
     isCheckingApi.value = true;
     try {
         const response = await makeApiRequest(newApiUrl.value, {
@@ -668,19 +663,19 @@ const clearAllLocalSettings = () => {
 };
 
 // 检查单个API可用性的函数
-const checkApiAvailability = async (apiUrl: string): Promise<boolean> => {
-    try {
-        const response = await makeApiRequest(apiUrl, {
-            text: 'hello',
-            source_lang: 'EN',
-            target_lang: 'ZH',
-        });
-        return !!(response.data && response.data.data);
-    } catch (error) {
-        console.error('API可用性检查失败:', error);
-        return false;
-    }
-};
+// const checkApiAvailability = async (apiUrl: string): Promise<boolean> => {
+//     try {
+//         const response = await makeApiRequest(apiUrl, {
+//             text: 'hello',
+//             source_lang: 'EN',
+//             target_lang: 'ZH',
+//         });
+//         return !!(response.data && response.data.data);
+//     } catch (error) {
+//         console.error('API可用性检查失败:', error);
+//         return false;
+//     }
+// };
 
 // 检查所有API可用性
 const checkAllApiAvailability = async () => {
