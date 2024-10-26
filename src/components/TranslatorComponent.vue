@@ -228,7 +228,6 @@ const newApiUrl = ref('');
 const apiUrls = ref<{ url: string; method: string; available: boolean; useCount: number; lastUsed: number; successCount: number; failureCount: number }[]>([]);
 const sourceLang = ref('AUTO');
 const targetLang = ref('ZH');
-const currentApiIndex = ref(0);
 const showMethodLabel = ref(true);
 const isCheckingApi = ref(false);
 const isCheckingAllApis = ref(false);
