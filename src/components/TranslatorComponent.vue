@@ -310,8 +310,16 @@ const enabledTargetLangs = computed(() => targetLangs.value.filter(lang => lang.
 // 修改格式化API URL的辅助函数
 const formatProxyUrl = (originalUrl: string) => {
     try {
-        // 移除协议前缀
-        let urlWithoutProtocol = originalUrl.replace(/^(https?:\/\/)/, '');
+        // 解析协议和剩余部分
+        let protocol = 'http';
+        let urlWithoutProtocol = originalUrl;
+        
+        // 检查并提取协议
+        const protocolMatch = originalUrl.match(/^(https?):\/\//);
+        if (protocolMatch) {
+            protocol = protocolMatch[1];
+            urlWithoutProtocol = originalUrl.replace(/^https?:\/\//, '');
+        }
         
         // 移除末尾的斜杠
         urlWithoutProtocol = urlWithoutProtocol.replace(/\/$/, '');
@@ -321,7 +329,8 @@ const formatProxyUrl = (originalUrl: string) => {
             urlWithoutProtocol += '/';
         }
         
-        return `/api/${urlWithoutProtocol}`;
+        // 返回格式化后的URL，包含协议信息
+        return `/api/${protocol}/${urlWithoutProtocol}`;
     } catch (error) {
         console.error('URL格式化错误:', error);
         return originalUrl;
@@ -726,7 +735,7 @@ const checkAllApiAvailability = async () => {
     }
 };
 
-// 删除不可用的API
+// ��除不可用的API
 const removeUnavailableApis = () => {
     const initialLength = apiUrls.value.length;
     apiUrls.value = apiUrls.value.filter(api => api.available);
@@ -1039,3 +1048,4 @@ const importSettings = (file: any) => {
     padding-bottom: 40px;  /* 根据 footer 高度调整 */
 }
 </style>
+
