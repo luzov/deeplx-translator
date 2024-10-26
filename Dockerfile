@@ -22,6 +22,10 @@ EXPOSE 1199
 # 复制自定义 nginx 配置
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# 在 Dockerfile 中添加
+RUN mkdir -p /var/log/nginx && \
+    chown -R nginx:nginx /var/log/nginx
+
 # 启动 Nginx
 CMD ["nginx", "-g", "daemon off;"]
 
