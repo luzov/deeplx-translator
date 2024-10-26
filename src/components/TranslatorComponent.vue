@@ -76,30 +76,17 @@
                         </el-form-item>
                         <!-- 添加自动切换语言设置 -->
                         <el-form-item label="检测到中文时切换目标语言为">
-                            <el-select 
-                                v-model="autoTargetLangForChinese" 
-                                placeholder="选择目标语言"
-                                class="settings-select">
-                                <el-option
-                                    v-for="lang in enabledTargetLangs.filter(l => l.value !== 'ZH')"
-                                    :key="lang.value"
-                                    :label="lang.label"
-                                    :value="lang.value"
-                                />
+                            <el-select v-model="autoTargetLangForChinese" placeholder="选择目标语言" class="settings-select">
+                                <el-option v-for="lang in enabledTargetLangs.filter(l => l.value !== 'ZH')"
+                                    :key="lang.value" :label="lang.label" :value="lang.value" />
                             </el-select>
                         </el-form-item>
 
                         <el-form-item label="检测到英文时切换目标语言为">
-                            <el-select 
-                                v-model="autoTargetLangForEnglish" 
-                                placeholder="选择目标语言"
-                                class="settings-select">
+                            <el-select v-model="autoTargetLangForEnglish" placeholder="选择目标语言" class="settings-select">
                                 <el-option
                                     v-for="lang in enabledTargetLangs.filter(l => !['EN', 'EN-GB', 'EN-US'].includes(l.value))"
-                                    :key="lang.value"
-                                    :label="lang.label"
-                                    :value="lang.value"
-                                />
+                                    :key="lang.value" :label="lang.label" :value="lang.value" />
                             </el-select>
                         </el-form-item>
                         <!-- 添加导入导出按钮 -->
@@ -325,31 +312,31 @@ const formatProxyUrl = (originalUrl: string) => {
         // 检查是否是IP地址（可能带端口）的格式
         const ipRegex = /^(https?:\/\/)((?:\d{1,3}\.){3}\d{1,3})(:\d+)?(\/.*)$/;
         const ipMatch = originalUrl.match(ipRegex);
-        
+
         if (ipMatch) {
             // 如果是IP地址格式，直接返回原始URL
             return originalUrl;
         }
-        
+
         // 其他情况走代理
         let protocol = 'http';
         let urlWithoutProtocol = originalUrl;
-        
+
         // 检查并提取协议
         const protocolMatch = originalUrl.match(/^(https?):\/\//);
         if (protocolMatch) {
             protocol = protocolMatch[1];
             urlWithoutProtocol = originalUrl.replace(/^https?:\/\//, '');
         }
-        
+
         // 移除末尾的斜杠
         urlWithoutProtocol = urlWithoutProtocol.replace(/\/$/, '');
-        
+
         // 确保路径正确
         if (!urlWithoutProtocol.includes('/')) {
             urlWithoutProtocol += '/';
         }
-        
+
         // 返回格式化后的URL，包含协议信息
         return `/api/${protocol}/${urlWithoutProtocol}`;
     } catch (error) {
@@ -409,7 +396,7 @@ const translate = async () => {
             const countA = a.useCount || 0;
             const countB = b.useCount || 0;
             if (countA !== countB) return countA - countB;
-            
+
             // 使用次数相同时，选择最后使用时间更早的
             const timeA = a.lastUsed || 0;
             const timeB = b.lastUsed || 0;
@@ -451,7 +438,7 @@ const translate = async () => {
     } catch (error: any) {
         updateApiStats(selectedApi.url, false);
         console.error('Translation failed:', error.message);
-        
+
         // 标记API为不可用
         const apiIndex = apiUrls.value.findIndex(api => api.url === selectedApi.url);
         if (apiIndex !== -1) {
@@ -460,9 +447,9 @@ const translate = async () => {
         }
 
         ElMessage.error(
-            error.response?.status === 502 ? 
-            'API服务器连接失败，请检查API地址是否正确' : 
-            '翻译失败，请检查API地址或网络连接'
+            error.response?.status === 502 ?
+                'API服务器连接失败，请检查API地址是否正确' :
+                '翻译失败，请检查API地址或网络连接'
         );
     }
 
@@ -502,7 +489,7 @@ watch(targetLang, () => {
 
 watch(sourceText, debounce(() => {
     const text = sourceText.value.trim();
-    
+
     if (!text) {
         translationResult.value = '';
         alternativeTranslations.value = [];
@@ -635,7 +622,7 @@ onMounted(() => {
     if (savedAutoTargetLangForChinese) {
         autoTargetLangForChinese.value = savedAutoTargetLangForChinese;
     }
-    
+
     const savedAutoTargetLangForEnglish = localStorage.getItem('autoTargetLangForEnglish');
     if (savedAutoTargetLangForEnglish) {
         autoTargetLangForEnglish.value = savedAutoTargetLangForEnglish;
@@ -935,7 +922,7 @@ const calculateSuccessRate = (api: ApiUrlInfo) => {
 const formatLastUsed = (timestamp: number) => {
     const now = Date.now();
     const diff = now - timestamp;
-    
+
     if (diff < 60000) return '刚刚';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
@@ -950,7 +937,7 @@ const updateApiStats = (apiUrl: string, success: boolean) => {
     const api = apiUrls.value[apiIndex];
     api.useCount = (api.useCount || 0) + 1;
     api.lastUsed = Date.now();
-    
+
     if (success) {
         api.successCount = (api.successCount || 0) + 1;
     } else {
@@ -1150,7 +1137,8 @@ const updateApiStats = (apiUrl: string, success: boolean) => {
 
 /* 为了防止底部内容被 footer 遮挡，给主容器添加底部内边距 */
 .translator {
-    padding-bottom: 40px;  /* 根据 footer 高度调整 */
+    padding-bottom: 40px;
+    /* 根据 footer 高度调整 */
 }
 
 .api-stats {
