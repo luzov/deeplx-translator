@@ -310,7 +310,16 @@ const enabledTargetLangs = computed(() => targetLangs.value.filter(lang => lang.
 // 修改格式化API URL的辅助函数
 const formatProxyUrl = (originalUrl: string) => {
     try {
-        // 解析协议和剩余部分
+        // 检查是否是IP地址（可能带端口）的格式
+        const ipRegex = /^(https?:\/\/)((?:\d{1,3}\.){3}\d{1,3})(:\d+)?(\/.*)$/;
+        const ipMatch = originalUrl.match(ipRegex);
+        
+        if (ipMatch) {
+            // 如果是IP地址格式，直接返回原始URL
+            return originalUrl;
+        }
+        
+        // 其他情况走代理
         let protocol = 'http';
         let urlWithoutProtocol = originalUrl;
         
@@ -735,7 +744,7 @@ const checkAllApiAvailability = async () => {
     }
 };
 
-// ��除不可用的API
+// 除不可用的API
 const removeUnavailableApis = () => {
     const initialLength = apiUrls.value.length;
     apiUrls.value = apiUrls.value.filter(api => api.available);
@@ -1048,4 +1057,3 @@ const importSettings = (file: any) => {
     padding-bottom: 40px;  /* 根据 footer 高度调整 */
 }
 </style>
-
