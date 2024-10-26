@@ -148,18 +148,31 @@
                         </div>
                     </div>
                     <el-table :data="apiUrls" style="width: 100%">
-                        <el-table-column prop="url" label="API 地址" />
-                        <el-table-column prop="method" label="Method" width="100" />
-                        <el-table-column prop="available" label="可用性" width="100">
+                        <el-table-column prop="url" label="API 地址" min-width="200" />
+                        <el-table-column prop="method" label="翻译引擎" width="100" />
+                        <el-table-column label="状态" width="80">
                             <template #default="scope">
-                                <el-tag :type="scope.row.available ? 'success' : 'danger'">
+                                <el-tag :type="scope.row.available ? 'success' : 'danger'" size="small">
                                     {{ scope.row.available ? '可用' : '不可用' }}
                                 </el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column width="100">
+                        <el-table-column label="使用统计" width="200">
                             <template #default="scope">
-                                <el-button type="danger" @click="removeApiUrl(scope.$index)" size="small">删除</el-button>
+                                <div class="api-stats">
+                                    <div>总次数: {{ scope.row.useCount || 0 }}</div>
+                                    <div>成功率: {{ calculateSuccessRate(scope.row) }}%</div>
+                                    <div v-if="scope.row.lastUsed">
+                                        最后使用: {{ formatLastUsed(scope.row.lastUsed) }}
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="操作" width="120">
+                            <template #default="scope">
+                                <el-button type="danger" size="small" @click="removeApiUrl(scope.$index)">
+                                    删除
+                                </el-button>
                             </template>
                         </el-table-column>
                     </el-table>
@@ -212,7 +225,7 @@ const translationMethod = ref('');
 const isTranslating = ref(false);
 const settingsVisible = ref(false);
 const newApiUrl = ref('');
-const apiUrls = ref<{ url: string; method: string; available: boolean }[]>([]);
+const apiUrls = ref<{ url: string; method: string; available: boolean; useCount: number; lastUsed: number; successCount: number; failureCount: number }[]>([]);
 const sourceLang = ref('AUTO');
 const targetLang = ref('ZH');
 const currentApiIndex = ref(0);
@@ -367,6 +380,17 @@ const makeApiRequest = async (url: string, data: any, retries = 1): Promise<any>
     }
 };
 
+// 添加 API 使用计数接口
+interface ApiUrlInfo {
+    url: string;
+    method: string;
+    available: boolean;
+    useCount: number;      // API 使用次数
+    lastUsed: number;      // 最后使用时间
+    successCount: number;  // 成功次数
+    failureCount: number;  // 失败次数
+}
+
 // 修改翻译函数
 const translate = async () => {
     isTranslating.value = true;
@@ -378,34 +402,69 @@ const translate = async () => {
         return;
     }
 
-    for (let i = 0; i < apiUrls.value.length; i++) {
-        const apiUrl = apiUrls.value[currentApiIndex.value];
-        try {
-            const response = await makeApiRequest(apiUrl.url, {
-                text: sourceText.value,
-                source_lang: sourceLang.value,
-                target_lang: targetLang.value,
-            });
-
-            if (response.data && response.data.data) {
-                translationResult.value = response.data.data;
-                alternativeTranslations.value = response.data.alternatives || [];
-                alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
-                translationMethod.value = response.data.method;
-                break;
-            }
-        } catch (error: any) {
-            console.error('Translation failed:', error.message);
-            currentApiIndex.value = (currentApiIndex.value + 1) % apiUrls.value.length;
+    // 创建可用API的副本并按使用次数排序
+    const availableApis = [...apiUrls.value]
+        .filter(api => api.available)
+        .sort((a, b) => {
+            // 优先选择使用次数少的API
+            const countA = a.useCount || 0;
+            const countB = b.useCount || 0;
+            if (countA !== countB) return countA - countB;
             
-            if (i === apiUrls.value.length - 1) {
-                ElMessage.error(
-                    error.response?.status === 502 ? 
-                    'API服务器连接失败，请检查API地址是否正确' : 
-                    '翻译失败，请检查API地址或网络连接'
-                );
+            // 使用次数相同时，选择最后使用时间更早的
+            const timeA = a.lastUsed || 0;
+            const timeB = b.lastUsed || 0;
+            return timeA - timeB;
+        });
+
+    if (availableApis.length === 0) {
+        ElMessage.error('没有可用的API，请检查API设置');
+        isTranslating.value = false;
+        return;
+    }
+
+    // 随机选择前3个API中的一个（如果不足3个则在现有范围内随机）
+    const randomIndex = Math.floor(Math.random() * Math.min(3, availableApis.length));
+    const selectedApi = availableApis[randomIndex];
+
+    try {
+        const response = await makeApiRequest(selectedApi.url, {
+            text: sourceText.value,
+            source_lang: sourceLang.value,
+            target_lang: targetLang.value,
+        });
+
+        if (response.data && response.data.data) {
+            updateApiStats(selectedApi.url, true);
+            // 更新API使用统计
+            const apiIndex = apiUrls.value.findIndex(api => api.url === selectedApi.url);
+            if (apiIndex !== -1) {
+                apiUrls.value[apiIndex].useCount = (apiUrls.value[apiIndex].useCount || 0) + 1;
+                apiUrls.value[apiIndex].lastUsed = Date.now();
+                localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
             }
+
+            translationResult.value = response.data.data;
+            alternativeTranslations.value = response.data.alternatives || [];
+            alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
+            translationMethod.value = response.data.method;
         }
+    } catch (error: any) {
+        updateApiStats(selectedApi.url, false);
+        console.error('Translation failed:', error.message);
+        
+        // 标记API为不可用
+        const apiIndex = apiUrls.value.findIndex(api => api.url === selectedApi.url);
+        if (apiIndex !== -1) {
+            apiUrls.value[apiIndex].available = false;
+            localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+        }
+
+        ElMessage.error(
+            error.response?.status === 502 ? 
+            'API服务器连接失败，请检查API地址是否正确' : 
+            '翻译失败，请检查API地址或网络连接'
+        );
     }
 
     translationTime.value = Date.now() - startTime;
@@ -500,7 +559,11 @@ const addApiUrl = async () => {
             apiUrls.value.push({
                 url: newApiUrl.value,
                 method: response.data.method || 'Unknown',
-                available: true
+                available: true,
+                useCount: 0,
+                lastUsed: 0,
+                successCount: 0,
+                failureCount: 0
             });
             localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
             newApiUrl.value = '';
@@ -863,6 +926,40 @@ const importSettings = (file: any) => {
     };
     reader.readAsText(file.raw);
 };
+
+const calculateSuccessRate = (api: ApiUrlInfo) => {
+    const total = (api.successCount || 0) + (api.failureCount || 0);
+    if (total === 0) return 0;
+    return Math.round((api.successCount || 0) / total * 100);
+};
+
+const formatLastUsed = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
+    return new Date(timestamp).toLocaleDateString();
+};
+
+// 在翻译成功时更新统计
+const updateApiStats = (apiUrl: string, success: boolean) => {
+    const apiIndex = apiUrls.value.findIndex(api => api.url === apiUrl);
+    if (apiIndex === -1) return;
+
+    const api = apiUrls.value[apiIndex];
+    api.useCount = (api.useCount || 0) + 1;
+    api.lastUsed = Date.now();
+    
+    if (success) {
+        api.successCount = (api.successCount || 0) + 1;
+    } else {
+        api.failureCount = (api.failureCount || 0) + 1;
+    }
+
+    localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+};
 </script>
 
 <style scoped>
@@ -1055,5 +1152,11 @@ const importSettings = (file: any) => {
 /* 为了防止底部内容被 footer 遮挡，给主容器添加底部内边距 */
 .translator {
     padding-bottom: 40px;  /* 根据 footer 高度调整 */
+}
+
+.api-stats {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #666;
 }
 </style>
