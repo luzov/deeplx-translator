@@ -466,11 +466,6 @@ const addApiUrl = async () => {
         }
     } catch (error) {
         ElMessage.error('API 地址无效');
-        apiUrls.value.push({
-            url: newApiUrl.value,
-            method: 'Unknown',
-            available: false
-        });
     } finally {
         isCheckingApi.value = false;
     }
