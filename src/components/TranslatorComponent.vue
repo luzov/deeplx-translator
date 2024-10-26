@@ -472,6 +472,9 @@ const addApiUrl = async () => {
         return;
     }
 
+    // 去除api前后空格
+    newApiUrl.value = newApiUrl.value.trim();
+    
     isCheckingApi.value = true;
     try {
         const response = await makeApiRequest(newApiUrl.value, {
