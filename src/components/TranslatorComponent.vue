@@ -469,9 +469,11 @@ const removeApiUrl = (index: number) => {
 };
 
 const swapLanguages = () => {
-    if (sourceLang.value !== 'AUTO' && targetLang.value !== 'AUTO') {
-        [sourceLang.value, targetLang.value] = [targetLang.value, sourceLang.value];
+    if (sourceLang.value === 'AUTO' || targetLang.value === 'AUTO') {
+        ElMessage.warning('自动检测不能交换哦！');
+        return;
     }
+    [sourceLang.value, targetLang.value] = [targetLang.value, sourceLang.value];
 };
 
 const clearAll = () => {
