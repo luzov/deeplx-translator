@@ -11,7 +11,7 @@ import TranslatorComponent from './components/TranslatorComponent.vue';
 
 <style>
 body {
-  font-family: "LXGW WenKai", sans-serif;
+  font-family: sans-serif;
   background-color: #f0f2f5;
   margin: 0;
   padding: 0;
