@@ -312,6 +312,16 @@ interface TranslationResponse {
     method: string;
 }
 
+// 添加格式化API URL的辅助函数
+const formatProxyUrl = (originalUrl: string) => {
+    // 移除协议前缀
+    const urlWithoutProtocol = originalUrl.replace(/^(https?:\/\/)/, '');
+    
+    // 构建代理URL
+    return `/api/${urlWithoutProtocol}`;
+};
+
+// 修改翻译函数
 const translate = async () => {
     isTranslating.value = true;
     const startTime = Date.now();
@@ -327,8 +337,9 @@ const translate = async () => {
     for (let i = 0; i < totalApis; i++) {
         const apiUrl = apiUrls.value[currentApiIndex.value];
         try {
+            const proxyUrl = formatProxyUrl(apiUrl.url);
             const response = await Promise.race([
-                axios.post<TranslationResponse>(apiUrl.url, {
+                axios.post<TranslationResponse>(proxyUrl, {
                     text: sourceText.value,
                     source_lang: sourceLang.value,
                     target_lang: targetLang.value,
@@ -425,6 +436,7 @@ const showSettings = () => {
     settingsVisible.value = true;
 };
 
+// 添加API函数
 const addApiUrl = async () => {
     if (!newApiUrl.value) {
         ElMessage.warning('请输入 API 地址');
@@ -433,7 +445,8 @@ const addApiUrl = async () => {
 
     isCheckingApi.value = true;
     try {
-        const response = await axios.post(newApiUrl.value, {
+        const proxyUrl = formatProxyUrl(newApiUrl.value);
+        const response = await axios.post(proxyUrl, {
             text: 'hello',
             source_lang: 'EN',
             target_lang: 'ZH',
@@ -630,7 +643,8 @@ const clearAllLocalSettings = () => {
 // 检查单个API可用性的函数
 const checkApiAvailability = async (apiUrl: string): Promise<boolean> => {
     try {
-        const response = await axios.post(apiUrl, {
+        const proxyUrl = formatProxyUrl(apiUrl);
+        const response = await axios.post(proxyUrl, {
             text: 'hello',
             source_lang: 'EN',
             target_lang: 'ZH',
