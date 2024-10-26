@@ -315,7 +315,6 @@ interface TranslationResponse {
 const translate = async () => {
     isTranslating.value = true;
     const startTime = Date.now();
-    let success = false;
     const totalApis = apiUrls.value.length;
     const TIMEOUT = 5000; // 5秒超时
 
@@ -343,7 +342,6 @@ const translate = async () => {
             alternativeTranslations.value = response.data.alternatives || [];
             alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
             translationMethod.value = response.data.method;
-            success = true;
             break;
         } catch (error: any) {
             console.error('Translation failed:', error.message);
