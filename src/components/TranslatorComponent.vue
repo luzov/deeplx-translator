@@ -312,60 +312,89 @@ interface TranslationResponse {
     method: string;
 }
 
-// 添加格式化API URL的辅助函数
+// 修改格式化API URL的辅助函数
 const formatProxyUrl = (originalUrl: string) => {
-    // 移除协议前缀
-    const urlWithoutProtocol = originalUrl.replace(/^(https?:\/\/)/, '');
-    
-    // 构建代理URL
-    return `/api/${urlWithoutProtocol}`;
+    try {
+        // 移除协议前缀
+        let urlWithoutProtocol = originalUrl.replace(/^(https?:\/\/)/, '');
+        
+        // 移除末尾的斜杠
+        urlWithoutProtocol = urlWithoutProtocol.replace(/\/$/, '');
+        
+        // 确保路径正确
+        if (!urlWithoutProtocol.includes('/')) {
+            urlWithoutProtocol += '/';
+        }
+        
+        return `/api/${urlWithoutProtocol}`;
+    } catch (error) {
+        console.error('URL格式化错误:', error);
+        return originalUrl;
+    }
+};
+
+// 修改API请求函数，添加重试逻辑
+const makeApiRequest = async (url: string, data: any, retries = 1): Promise<any> => {
+    try {
+        const proxyUrl = formatProxyUrl(url);
+        const response = await axios.post(proxyUrl, data, {
+            timeout: 10000, // 10秒超时
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        return response;
+    } catch (error: any) {
+        if (retries > 0 && error.response?.status === 502) {
+            // 如果是502错误且还有重试次数，等待后重试
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return makeApiRequest(url, data, retries - 1);
+        }
+        throw error;
+    }
 };
 
 // 修改翻译函数
 const translate = async () => {
     isTranslating.value = true;
     const startTime = Date.now();
-    const totalApis = apiUrls.value.length;
-    const TIMEOUT = 5000; // 5秒超时
 
-    if (totalApis === 0) {
+    if (apiUrls.value.length === 0) {
         ElMessage.error('没有可供翻译的API，请在右下角设置中添加API');
         isTranslating.value = false;
         return;
     }
 
-    for (let i = 0; i < totalApis; i++) {
+    for (let i = 0; i < apiUrls.value.length; i++) {
         const apiUrl = apiUrls.value[currentApiIndex.value];
         try {
-            const proxyUrl = formatProxyUrl(apiUrl.url);
-            const response = await Promise.race([
-                axios.post<TranslationResponse>(proxyUrl, {
-                    text: sourceText.value,
-                    source_lang: sourceLang.value,
-                    target_lang: targetLang.value,
-                }),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('请求超时')), TIMEOUT)
-                )
-            ]) as { data: TranslationResponse };
+            const response = await makeApiRequest(apiUrl.url, {
+                text: sourceText.value,
+                source_lang: sourceLang.value,
+                target_lang: targetLang.value,
+            });
 
-            translationResult.value = response.data.data;
-            alternativeTranslations.value = response.data.alternatives || [];
-            alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
-            translationMethod.value = response.data.method;
-            break;
+            if (response.data && response.data.data) {
+                translationResult.value = response.data.data;
+                alternativeTranslations.value = response.data.alternatives || [];
+                alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
+                translationMethod.value = response.data.method;
+                break;
+            }
         } catch (error: any) {
             console.error('Translation failed:', error.message);
-            currentApiIndex.value = (currentApiIndex.value + 1) % totalApis;
-            if (i === totalApis - 1) {
-                ElMessage.error(error.message === '请求超时' ?
-                    '所有API均已超时，请检查网络连接' :
-                    '翻译失败，请检查API地址或网络连接');
+            currentApiIndex.value = (currentApiIndex.value + 1) % apiUrls.value.length;
+            
+            if (i === apiUrls.value.length - 1) {
+                ElMessage.error(
+                    error.response?.status === 502 ? 
+                    'API服务器连接失败，请检查API地址是否正确' : 
+                    '翻译失败，请检查API地址或网络连接'
+                );
             }
         }
     }
 
-    currentApiIndex.value = (currentApiIndex.value + 1) % totalApis;
     translationTime.value = Date.now() - startTime;
     isTranslating.value = false;
 };
@@ -445,8 +474,7 @@ const addApiUrl = async () => {
 
     isCheckingApi.value = true;
     try {
-        const proxyUrl = formatProxyUrl(newApiUrl.value);
-        const response = await axios.post(proxyUrl, {
+        const response = await makeApiRequest(newApiUrl.value, {
             text: 'hello',
             source_lang: 'EN',
             target_lang: 'ZH',
@@ -465,6 +493,7 @@ const addApiUrl = async () => {
             ElMessage.error('API 地址无效');
         }
     } catch (error) {
+        console.error('API添加失败:', error);
         ElMessage.error('API 地址无效');
     } finally {
         isCheckingApi.value = false;
@@ -638,14 +667,14 @@ const clearAllLocalSettings = () => {
 // 检查单个API可用性的函数
 const checkApiAvailability = async (apiUrl: string): Promise<boolean> => {
     try {
-        const proxyUrl = formatProxyUrl(apiUrl);
-        const response = await axios.post(proxyUrl, {
+        const response = await makeApiRequest(apiUrl, {
             text: 'hello',
             source_lang: 'EN',
             target_lang: 'ZH',
         });
         return !!(response.data && response.data.data);
     } catch (error) {
+        console.error('API可用性检查失败:', error);
         return false;
     }
 };
@@ -662,14 +691,25 @@ const checkAllApiAvailability = async () => {
 
     try {
         const promises = apiUrls.value.map(async (api, index) => {
-            const isAvailable = await checkApiAvailability(api.url);
-            apiUrls.value[index].available = isAvailable;
-            checkedCount++;
-
-            // 更新进度提示
-            ElMessage.success(`已检查 ${checkedCount}/${apiUrls.value.length} 个API`);
-
-            return isAvailable;
+            try {
+                const response = await makeApiRequest(api.url, {
+                    text: 'hello',
+                    source_lang: 'EN',
+                    target_lang: 'ZH',
+                });
+                const isAvailable = !!(response.data && response.data.data);
+                apiUrls.value[index].available = isAvailable;
+                apiUrls.value[index].method = response.data?.method || 'Unknown';
+                checkedCount++;
+                ElMessage.success(`已检查 ${checkedCount}/${apiUrls.value.length} 个API`);
+                return isAvailable;
+            } catch (error) {
+                console.error(`API检查失败 (${api.url}):`, error);
+                apiUrls.value[index].available = false;
+                checkedCount++;
+                ElMessage.warning(`API ${api.url} 检查失败`);
+                return false;
+            }
         });
 
         await Promise.all(promises);
@@ -681,6 +721,7 @@ const checkAllApiAvailability = async () => {
         const availableCount = apiUrls.value.filter(api => api.available).length;
         ElMessage.success(`检查完成：${availableCount}/${apiUrls.value.length} 个API可用`);
     } catch (error) {
+        console.error('API批量检查失败:', error);
         ElMessage.error('检查过程中发生错误');
     } finally {
         isCheckingAllApis.value = false;
