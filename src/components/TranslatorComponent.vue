@@ -66,68 +66,90 @@
 
         <el-dialog title="设置" v-model="settingsVisible" width="800px" class="settings-dialog">
             <el-tabs>
-                <el-tab-pane label="通用设置">
-                    <el-form>
-                        <el-form-item label="显示Method标签">
-                            <el-switch v-model="showMethodLabel" />
-                        </el-form-item>
-                        <el-form-item label="显示翻译用时">
-                            <el-switch v-model="showTranslationTime" />
-                        </el-form-item>
-                        <!-- 添加自动切换语言设置 -->
-                        <el-form-item label="检测到中文时切换目标语言为">
-                            <el-select v-model="autoTargetLangForChinese" placeholder="选择目标语言" class="settings-select">
-                                <el-option v-for="lang in enabledTargetLangs.filter(l => l.value !== 'ZH')"
-                                    :key="lang.value" :label="lang.label" :value="lang.value" />
-                            </el-select>
-                        </el-form-item>
+                <!-- 通用设置（语言设置） -->
+                <el-tab-pane label="通用">
+                    <el-form label-width="180px" class="settings-form">
+                        <div class="settings-group">
+                            <div class="settings-group-title">语言设置</div>
+                            <el-form-item label="默认源语言">
+                                <el-select v-model="defaultSourceLang" placeholder="选择默认源语言" class="settings-select">
+                                    <el-option v-for="lang in enabledSourceLangs"
+                                        :key="lang.value" :label="lang.label" :value="lang.value" />
+                                </el-select>
+                            </el-form-item>
 
-                        <el-form-item label="检测到英文时切换目标语言为">
-                            <el-select v-model="autoTargetLangForEnglish" placeholder="选择目标语言" class="settings-select">
-                                <el-option
-                                    v-for="lang in enabledTargetLangs.filter(l => !['EN', 'EN-GB', 'EN-US'].includes(l.value))"
-                                    :key="lang.value" :label="lang.label" :value="lang.value" />
-                            </el-select>
-                        </el-form-item>
-                        <!-- 添加导入导出按钮 -->
-                        <div class="settings-actions">
-                            <el-button type="primary" plain @click="exportSettings">导出配置</el-button>
-                            <el-upload class="settings-upload" action="" :auto-upload="false" :show-file-list="false"
-                                accept=".json" @change="importSettings">
-                                <el-button type="primary" plain>导入配置</el-button>
-                            </el-upload>
+                            <el-form-item label="默认目标语言">
+                                <el-select v-model="defaultTargetLang" placeholder="选择默认目标语言" class="settings-select">
+                                    <el-option v-for="lang in enabledTargetLangs"
+                                        :key="lang.value" :label="lang.label" :value="lang.value" />
+                                </el-select>
+                            </el-form-item>
+
+                            <el-form-item label="输入中文时目标语言">
+                                <el-select v-model="autoTargetLangForChinese" placeholder="选择目标语言" class="settings-select">
+                                    <el-option v-for="lang in enabledTargetLangs.filter(l => l.value !== 'ZH')"
+                                        :key="lang.value" :label="lang.label" :value="lang.value" />
+                                </el-select>
+                            </el-form-item>
+
+                            <el-form-item label="输入英文时目标语言">
+                                <el-select v-model="autoTargetLangForEnglish" placeholder="选择目标语言" class="settings-select">
+                                    <el-option
+                                        v-for="lang in enabledTargetLangs.filter(l => !['EN', 'EN-GB', 'EN-US'].includes(l.value))"
+                                        :key="lang.value" :label="lang.label" :value="lang.value" />
+                                </el-select>
+                            </el-form-item>
                         </div>
-                        <el-divider />
-                        <!-- 现有的清除配置按钮 -->
-                        <el-form-item>
-                            <el-popconfirm title="确定要清除所有本地配置吗？此操作不可逆。" @confirm="clearAllLocalSettings"
-                                confirm-button-text="确定" cancel-button-text="取消">
-                                <template #reference>
-                                    <el-button type="danger">清除所有本地配置</el-button>
-                                </template>
-                            </el-popconfirm>
-                        </el-form-item>
                     </el-form>
                 </el-tab-pane>
-                <el-tab-pane label="API 设置">
+
+                <!-- 显示设置 -->
+                <el-tab-pane label="显示">
+                    <el-form label-width="180px" class="settings-form">
+                        <div class="settings-group">
+                            <div class="settings-group-title">显示设置</div>
+                            <el-form-item label="显示翻译引擎标签">
+                                <el-switch v-model="showMethodLabel" />
+                            </el-form-item>
+                            <el-form-item label="显示翻译用时">
+                                <el-switch v-model="showTranslationTime" />
+                            </el-form-item>
+                        </div>
+                    </el-form>
+                </el-tab-pane>
+
+                <!-- API设置 -->
+                <el-tab-pane label="API">
                     <div class="api-header">
-                        <el-form :inline="true" class="api-form">
-                            <el-form-item label="API 地址" class="api-input">
-                                <el-input v-model="newApiUrl" placeholder="输入新的 API 地址" />
-                            </el-form-item>
-                            <el-form-item>
-                                <el-button type="primary" @click="addApiUrl" :loading="isCheckingApi">添加</el-button>
-                            </el-form-item>
-                        </el-form>
+                        <div class="api-form-container">
+                            <el-form :inline="true" class="api-form">
+                                <el-form-item label="API 地址" class="api-input-item">
+                                    <el-input v-model="newApiUrl" placeholder="输入新的 API 地址" />
+                                </el-form-item>
+                                <el-form-item class="api-button-item">
+                                    <el-button type="primary" @click="addApiUrl" :loading="isCheckingApi">添加</el-button>
+                                </el-form-item>
+                            </el-form>
+                        </div>
                         <div class="api-actions">
-                            <el-button type="primary" @click="checkAllApiAvailability" :loading="isCheckingAllApis"
-                                size="small">
+                            <div class="api-actions-spacer"></div>
+                            <el-button 
+                                type="primary" 
+                                size="small"
+                                @click="checkAllApiAvailability" 
+                                :loading="isCheckingAllApis">
                                 检查可用性
                             </el-button>
-                            <el-popconfirm title="确定要删除所有不可用的API吗？" @confirm="removeUnavailableApis"
-                                confirm-button-text="确定" cancel-button-text="取消">
+                            <el-popconfirm 
+                                title="确定要删除所有不可用的API吗？" 
+                                @confirm="removeUnavailableApis"
+                                confirm-button-text="确定" 
+                                cancel-button-text="取消">
                                 <template #reference>
-                                    <el-button type="danger" size="small" :disabled="!hasUnavailableApis">
+                                    <el-button 
+                                        type="danger" 
+                                        size="small"
+                                        :disabled="!hasUnavailableApis">
                                         删除不可用
                                     </el-button>
                                 </template>
@@ -164,7 +186,9 @@
                         </el-table-column>
                     </el-table>
                 </el-tab-pane>
-                <el-tab-pane label="源语言设置">
+
+                <!-- 源语言设置 -->
+                <el-tab-pane label="源语言">
                     <el-button @click="resetSourceLanguages">重置源语言设置</el-button>
                     <el-table :data="sourceLangs" row-key="value" height="400" style="width: 100%">
                         <el-table-column prop="label" label="语言" />
@@ -176,7 +200,9 @@
                         </el-table-column>
                     </el-table>
                 </el-tab-pane>
-                <el-tab-pane label="目标语言设置">
+
+                <!-- 目标语言设置 -->
+                <el-tab-pane label="目标语言">
                     <el-button @click="resetTargetLanguages">重置目标语言设置</el-button>
                     <el-table :data="targetLangs" row-key="value" height="400" style="width: 100%">
                         <el-table-column prop="label" label="语言" />
@@ -187,6 +213,31 @@
                             </template>
                         </el-table-column>
                     </el-table>
+                </el-tab-pane>
+
+                <!-- 配置管理 -->
+                <el-tab-pane label="配置管理">
+                    <el-form label-width="180px" class="settings-form">
+                        <div class="settings-group">
+                            <div class="settings-group-title">配置管理</div>
+                            <el-form-item class="settings-actions">
+                                <el-button type="primary" plain @click="exportSettings">导出配置</el-button>
+                                <el-upload class="settings-upload" action="" :auto-upload="false" :show-file-list="false"
+                                    accept=".json" @change="importSettings">
+                                    <el-button type="primary" plain>导入配置</el-button>
+                                </el-upload>
+                            </el-form-item>
+
+                            <el-form-item>
+                                <el-popconfirm title="确定要清除所有本地配置吗？此操作不可逆。" @confirm="clearAllLocalSettings"
+                                    confirm-button-text="确定" cancel-button-text="取消">
+                                    <template #reference>
+                                        <el-button type="danger">清除所有本地配置</el-button>
+                                    </template>
+                                </el-popconfirm>
+                            </el-form-item>
+                        </div>
+                    </el-form>
                 </el-tab-pane>
             </el-tabs>
         </el-dialog>
@@ -204,31 +255,35 @@ import axios from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Refresh, Setting, Document } from '@element-plus/icons-vue';
 
-const sourceText = ref('');
-const translationResult = ref('');
-const alternativeTranslations = ref<string[]>([]);
-const alternativeTranslationsText = ref('');
-const translationMethod = ref('');
-const isTranslating = ref(false);
-const settingsVisible = ref(false);
-const newApiUrl = ref('');
-const apiUrls = ref<{ url: string; method: string; available: boolean; useCount: number; lastUsed: number; successCount: number; failureCount: number }[]>([]);
-const sourceLang = ref('AUTO');
-const targetLang = ref('ZH');
-const showMethodLabel = ref(true);
-const isCheckingApi = ref(false);
-const isCheckingAllApis = ref(false);
-const showTranslationTime = ref(true);
-const translationTime = ref(0);
+const sourceText = ref('');  // 源文本
+const translationResult = ref('');  // 翻译结果
+const alternativeTranslations = ref<string[]>([]);  // 替代翻译
+const alternativeTranslationsText = ref('');  // 替代翻译文本
+const translationMethod = ref('');  // 翻译引擎
+const isTranslating = ref(false);   // 是否正在翻译
+const settingsVisible = ref(false); // 设置对话框是否可见
+const newApiUrl = ref('');  // 新API地址
+const apiUrls = ref<{ url: string; method: string; available: boolean; useCount: number; lastUsed: number; successCount: number; failureCount: number }[]>([]); // API列表
+const sourceLang = ref('AUTO');  // 源语言
+const targetLang = ref('ZH');  // 目标语言
+const showMethodLabel = ref(true);  // 显示翻译引擎标签
+const isCheckingApi = ref(false);  // 检查API可用性
+const isCheckingAllApis = ref(false);   // 检查API可用性
+const showTranslationTime = ref(true);  // 显示翻译用时
+const translationTime = ref(0); // 翻译用时
 const autoTargetLangForChinese = ref('EN');  // 检测到中文时的默认目标语言
 const autoTargetLangForEnglish = ref('ZH');  // 检测到英文时的默认目标语言
+const defaultSourceLang = ref('AUTO');  // 默认源语言
+const defaultTargetLang = ref('ZH');  // 默认目标语言
 
+// 语言设置
 interface Language {
     value: string;
     label: string;
     enabled: boolean;
 }
 
+// 源语言列表
 const sourceLangs = ref<Language[]>([
     { value: 'AUTO', label: '自动检测', enabled: true },
     { value: 'ZH', label: '中文', enabled: true },
@@ -243,7 +298,7 @@ const sourceLangs = ref<Language[]>([
     { value: 'BG', label: '保加利亚语', enabled: false },
     { value: 'CS', label: '捷克语', enabled: false },
     { value: 'DA', label: '丹麦语', enabled: false },
-    { value: 'EL', label: '希腊语', enabled: false },
+    { value: 'EL', label: '希腊', enabled: false },
     { value: 'ET', label: '爱沙尼亚语', enabled: false },
     { value: 'FI', label: '芬兰语', enabled: false },
     { value: 'HU', label: '匈牙利语', enabled: false },
@@ -255,15 +310,16 @@ const sourceLangs = ref<Language[]>([
     { value: 'PL', label: '波兰语', enabled: false },
     { value: 'PT', label: '葡萄牙语', enabled: false },
     { value: 'RO', label: '罗马尼亚语', enabled: false },
-    { value: 'SK', label: '斯洛伐克语', enabled: false },
+    { value: 'SK', label: '斯洛伐语', enabled: false },
     { value: 'SL', label: '斯洛文尼亚语', enabled: false },
     { value: 'SV', label: '瑞典语', enabled: false },
     { value: 'TR', label: '土耳其语', enabled: false },
     { value: 'UK', label: '乌克兰语', enabled: false },
 ]);
 
+// 目标语言列表
 const targetLangs = ref<Language[]>([
-    { value: 'ZH', label: '中文', enabled: true },
+    { value: 'ZH', label: '中���', enabled: true },
     { value: 'EN', label: '英语', enabled: true },
     { value: 'EN-US', label: '英语（美国）', enabled: true },
     { value: 'EN-GB', label: '英语（英国）', enabled: true },
@@ -300,10 +356,10 @@ const targetLangs = ref<Language[]>([
     { value: 'ZH-HANT', label: '中文（繁体）', enabled: false },
 ]);
 
+// 启用源语言列表
 const enabledSourceLangs = computed(() => sourceLangs.value.filter(lang => lang.enabled));
+// 启用目标语言列表
 const enabledTargetLangs = computed(() => targetLangs.value.filter(lang => lang.enabled));
-
-
 
 
 // 修改格式化API URL的辅助函数
@@ -457,72 +513,6 @@ const translate = async () => {
     isTranslating.value = false;
 };
 
-
-// 添加防抖函数
-const debounce = (fn: Function, delay: number) => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    return function (this: any, ...args: any[]) {
-        if (timeoutId !== null) {
-            clearTimeout(timeoutId);
-        }
-        timeoutId = setTimeout(() => fn.apply(this, args), delay);
-    };
-};
-
-// 添加检测中文的函数
-const containsChinese = (text: string): boolean => {
-    return /[\u4e00-\u9fa5]/.test(text);
-};
-
-// 添加检测英语的函数
-const containsEnglish = (text: string): boolean => {
-    return /[a-zA-Z]/.test(text);
-};
-
-// 监听目标语言变化
-watch(targetLang, () => {
-    if (sourceText.value.trim() && !isTranslating.value) {
-        translate();
-    }
-});
-
-
-watch(sourceText, debounce(() => {
-    const text = sourceText.value.trim();
-
-    if (!text) {
-        translationResult.value = '';
-        alternativeTranslations.value = [];
-        alternativeTranslationsText.value = '';
-        translationMethod.value = '';
-        return;
-    }
-
-    // 检测中文并自动切换目标语言
-    if (containsChinese(text) && targetLang.value === 'ZH') {
-        sourceLang.value = 'AUTO';
-        targetLang.value = autoTargetLangForChinese.value;
-        ElMessage.success('检测到中文输入，已自动切换目标语言');
-        return;
-    }
-
-    // 检测英语并自动切换目标语言
-    if (containsEnglish(text) && ['EN', 'EN-GB', 'EN-US'].includes(targetLang.value)) {
-        sourceLang.value = 'AUTO';
-        targetLang.value = autoTargetLangForEnglish.value;
-        ElMessage.success('检测到英语输入，已自动切换目标语言');
-        return;
-    }
-
-    if (!isTranslating.value) {
-        translate();
-    }
-}, 500));
-
-const showSettings = () => {
-    settingsVisible.value = true;
-};
-
 // 添加API函数
 const addApiUrl = async () => {
     if (!newApiUrl.value) {
@@ -582,22 +572,6 @@ const clearAll = () => {
     alternativeTranslationsText.value = '';
 };
 
-// 监听 showMethodLabel 的变化并保存到 localStorage
-watch(showMethodLabel, (newValue) => {
-    localStorage.setItem('showMethodLabel', JSON.stringify(newValue));
-});
-
-// 监听 showTranslationTime 的变化并保存到 localStorage
-watch(showTranslationTime, (newValue) => {
-    localStorage.setItem('showTranslationTime', JSON.stringify(newValue));
-});
-
-// 监听设置变化并保存
-watch([autoTargetLangForChinese, autoTargetLangForEnglish], ([newChinese, newEnglish]) => {
-    localStorage.setItem('autoTargetLangForChinese', newChinese);
-    localStorage.setItem('autoTargetLangForEnglish', newEnglish);
-});
-
 // 在组件挂载时从 localStorage 读取 showMethodLabel 和 apiUrls 的值
 onMounted(() => {
     const savedApiUrls = localStorage.getItem('apiUrls');
@@ -626,6 +600,18 @@ onMounted(() => {
     }
 
     loadLanguageSettings();
+
+    const savedDefaultSourceLang = localStorage.getItem('defaultSourceLang');
+    if (savedDefaultSourceLang) {
+        defaultSourceLang.value = savedDefaultSourceLang;
+        sourceLang.value = savedDefaultSourceLang; // 设置初始源语言
+    }
+
+    const savedDefaultTargetLang = localStorage.getItem('defaultTargetLang');
+    if (savedDefaultTargetLang) {
+        defaultTargetLang.value = savedDefaultTargetLang;
+        targetLang.value = savedDefaultTargetLang; // 设置初始目标语言
+    }
 });
 
 // 添加计算属性来决定标签的类型
@@ -725,21 +711,6 @@ const clearAllLocalSettings = () => {
         }
     }, 1000);
 };
-
-// 检查单个API可用性的函数
-// const checkApiAvailability = async (apiUrl: string): Promise<boolean> => {
-//     try {
-//         const response = await makeApiRequest(apiUrl, {
-//             text: 'hello',
-//             source_lang: 'EN',
-//             target_lang: 'ZH',
-//         });
-//         return !!(response.data && response.data.data);
-//     } catch (error) {
-//         console.error('API可用性检查失败:', error);
-//         return false;
-//     }
-// };
 
 // 检查所有API可用性
 const checkAllApiAvailability = async () => {
@@ -849,7 +820,9 @@ const exportSettings = () => {
         sourceLangs: sourceLangs.value,
         targetLangs: targetLangs.value,
         autoTargetLangForChinese: autoTargetLangForChinese.value,
-        autoTargetLangForEnglish: autoTargetLangForEnglish.value
+        autoTargetLangForEnglish: autoTargetLangForEnglish.value,
+        defaultSourceLang: defaultSourceLang.value,
+        defaultTargetLang: defaultTargetLang.value,
     };
 
     const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
@@ -893,6 +866,12 @@ const importSettings = (file: any) => {
             }
             if (settings.autoTargetLangForEnglish) {
                 autoTargetLangForEnglish.value = settings.autoTargetLangForEnglish;
+            }
+            if (settings.defaultSourceLang) {
+                defaultSourceLang.value = settings.defaultSourceLang;
+            }
+            if (settings.defaultTargetLang) {
+                defaultTargetLang.value = settings.defaultTargetLang;
             }
 
             // 保存到本地存储
@@ -943,6 +922,98 @@ const updateApiStats = (apiUrl: string, success: boolean) => {
 
     localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
 };
+
+// 防抖函数
+const debounce = (fn: Function, delay: number) => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    return function (this: any, ...args: any[]) {
+        if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+        }
+        timeoutId = setTimeout(() => fn.apply(this, args), delay);
+    };
+};
+
+// 检测中文
+const containsChinese = (text: string): boolean => {
+    return /[\u4e00-\u9fa5]/.test(text);
+};
+
+// 检测英语
+const containsEnglish = (text: string): boolean => {
+    return /[a-zA-Z]/.test(text);
+};
+
+// 以下为监听器
+// 监听目标语言变化
+watch(targetLang, () => {
+    if (sourceText.value.trim() && !isTranslating.value) {
+        translate();
+    }
+});
+
+watch(sourceText, debounce(() => {
+    const text = sourceText.value.trim();
+
+    if (!text) {
+        translationResult.value = '';
+        alternativeTranslations.value = [];
+        alternativeTranslationsText.value = '';
+        translationMethod.value = '';
+        return;
+    }
+
+    // 检测中文并自动切换目标语言
+    if (containsChinese(text) && ['ZH', 'ZH-HANS', 'ZH-HANT'].includes(targetLang.value)) {
+        sourceLang.value = 'AUTO';
+        targetLang.value = autoTargetLangForChinese.value;
+        ElMessage.success('检测到中文输入，已自动切换目标语言');
+        return;
+    }
+
+    // 检测英语并自动切换目标语言
+    if (containsEnglish(text) && ['EN', 'EN-GB', 'EN-US'].includes(targetLang.value)) {
+        sourceLang.value = 'AUTO';
+        targetLang.value = autoTargetLangForEnglish.value;
+        ElMessage.success('检测到英语输入，已自动切换目标语言');
+        return;
+    }
+
+    if (!isTranslating.value) {
+        translate();
+    }
+}, 500));
+
+const showSettings = () => {
+    settingsVisible.value = true;
+};
+
+// 监听 showMethodLabel 的变化并保存到 localStorage
+watch(showMethodLabel, (newValue) => {
+    localStorage.setItem('showMethodLabel', JSON.stringify(newValue));
+});
+
+// 监听 showTranslationTime 的变化并保存到 localStorage
+watch(showTranslationTime, (newValue) => {
+    localStorage.setItem('showTranslationTime', JSON.stringify(newValue));
+});
+
+// 监听设置变化并保存
+watch([autoTargetLangForChinese, autoTargetLangForEnglish], ([newChinese, newEnglish]) => {
+    localStorage.setItem('autoTargetLangForChinese', newChinese);
+    localStorage.setItem('autoTargetLangForEnglish', newEnglish);
+});
+
+// 添加对默认语言变化的监听
+watch([defaultSourceLang, defaultTargetLang], ([newSourceLang, newTargetLang]) => {
+    localStorage.setItem('defaultSourceLang', newSourceLang);
+    localStorage.setItem('defaultTargetLang', newTargetLang);
+    
+    // 更新当前语言选择
+    sourceLang.value = newSourceLang;
+    targetLang.value = newTargetLang;
+});
+
 </script>
 
 <style scoped>
@@ -1044,32 +1115,58 @@ const updateApiStats = (apiUrl: string, success: boolean) => {
     flex-direction: column;
     gap: 16px;
     margin-bottom: 20px;
+    width: 100%;
+}
+
+.api-form-container {
+    width: 100%;
 }
 
 .api-form {
     display: flex;
-    align-items: center;
-    margin-bottom: 0;
+    width: 100%;
 }
 
-.api-form :deep(.el-form-item) {
-    margin-bottom: 0;
+.api-input-item {
+    flex: 1;
     margin-right: 10px;
 }
 
-.api-form :deep(.el-form-item:first-child) {
-    flex: 1;
+.api-button-item {
+    width: auto;
+    margin-right: 0 !important;
 }
 
-.api-input {
+.api-input-item :deep(.el-form-item__content) {
     width: 100%;
 }
 
 .api-actions {
     display: flex;
+    width: 100%;
     justify-content: flex-end;
-    /* 将按钮靠右对齐 */
-    gap: 8px;
+    gap: 8px;  /* 减小按钮之间的间距 */
+    padding: 0;  /* 移除可能的内边距 */
+    margin: 0;   /* 移除可能的外边距 */
+}
+
+.api-actions-spacer {
+    flex: 1;
+}
+
+/* 确保表单项之间的间距一致 */
+.api-form :deep(.el-form-item) {
+    margin-bottom: 0;
+    margin-right: 10px;
+}
+
+.api-form :deep(.el-form-item:last-child) {
+    margin-right: 0;
+}
+
+/* 确保输入框占满可用空间 */
+.api-form :deep(.el-input) {
+    width: 100%;
 }
 
 :deep(.el-dialog__body) {
@@ -1098,12 +1195,14 @@ const updateApiStats = (apiUrl: string, success: boolean) => {
 
 .settings-actions {
     display: flex;
-    gap: 10px;
+    gap: 20px;
     margin: 10px 0;
+    justify-content: space-between;
 }
 
 .settings-upload {
     display: inline-block;
+    margin-left: 10px;
 }
 
 .settings-select {
@@ -1142,5 +1241,68 @@ const updateApiStats = (apiUrl: string, success: boolean) => {
     font-size: 12px;
     line-height: 1.5;
     color: #666;
+}
+
+/* 设置表单整体样式 */
+.settings-form {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* 设置组样式 */
+.settings-group {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ebeef5;
+}
+
+.settings-group:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.settings-group-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: #303133;
+    margin-bottom: 20px;
+}
+
+/* 统一表单项样式 */
+.settings-form :deep(.el-form-item) {
+    margin-bottom: 20px;
+}
+
+.settings-form :deep(.el-form-item__label) {
+    font-weight: normal;
+    color: #606266;
+}
+
+/* 统一选择框宽度 */
+.settings-select {
+    width: 240px;
+}
+
+/* 配置管理按钮组样式 */
+.settings-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.settings-upload {
+    display: inline-block;
+}
+
+/* 确保所有表单控件左对齐 */
+.settings-form :deep(.el-form-item__content) {
+    display: flex;
+    justify-content: flex-start;
+}
+
+/* 开关组件样式调整 */
+.settings-form :deep(.el-switch) {
+    margin-right: auto;
 }
 </style>
