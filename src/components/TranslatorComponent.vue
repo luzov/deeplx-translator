@@ -459,48 +459,54 @@ const translate = async () => {
         return;
     }
 
-    // 随机选择前3个API中的一个（如果不足3个则在现有范围内随机）
-    const randomIndex = Math.floor(Math.random() * Math.min(3, availableApis.length));
-    const selectedApi = availableApis[randomIndex];
+    // 遍历所有可用的API直到翻译成功
+    for (let i = 0; i < availableApis.length; i++) {
+        const currentApi = availableApis[i];
+        
+        try {
+            const response = await makeApiRequest(currentApi.url, {
+                text: sourceText.value,
+                source_lang: sourceLang.value,
+                target_lang: targetLang.value,
+            });
 
-    try {
-        const response = await makeApiRequest(selectedApi.url, {
-            text: sourceText.value,
-            source_lang: sourceLang.value,
-            target_lang: targetLang.value,
-        });
+            if (response.data && response.data.data) {
+                updateApiStats(currentApi.url, true);
+                // 更新API使用统计
+                const apiIndex = apiUrls.value.findIndex(api => api.url === currentApi.url);
+                if (apiIndex !== -1) {
+                    apiUrls.value[apiIndex].useCount = (apiUrls.value[apiIndex].useCount || 0) + 1;
+                    apiUrls.value[apiIndex].lastUsed = Date.now();
+                    localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+                }
 
-        if (response.data && response.data.data) {
-            updateApiStats(selectedApi.url, true);
-            // 更新API使用统计
-            const apiIndex = apiUrls.value.findIndex(api => api.url === selectedApi.url);
+                translationResult.value = response.data.data;
+                alternativeTranslations.value = response.data.alternatives || [];
+                alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
+                translationMethod.value = response.data.method;
+                
+                break; // 翻译成功，退出循环
+            }
+        } catch (error: any) {
+            updateApiStats(currentApi.url, false);
+            console.error('Translation failed:', error.message);
+
+            // 标记当前API为不可用
+            const apiIndex = apiUrls.value.findIndex(api => api.url === currentApi.url);
             if (apiIndex !== -1) {
-                apiUrls.value[apiIndex].useCount = (apiUrls.value[apiIndex].useCount || 0) + 1;
-                apiUrls.value[apiIndex].lastUsed = Date.now();
+                apiUrls.value[apiIndex].available = false;
                 localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
             }
 
-            translationResult.value = response.data.data;
-            alternativeTranslations.value = response.data.alternatives || [];
-            alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
-            translationMethod.value = response.data.method;
-        }
-    } catch (error: any) {
-        updateApiStats(selectedApi.url, false);
-        console.error('Translation failed:', error.message);
+            // 如果还有其他API可用，提示用户正在切换到下一个API
+            if (i < availableApis.length - 1) {
+                ElMessage.warning(`API "${currentApi.url}" 请求失败，正在尝试使用下一个API...`);
+                continue;
+            }
 
-        // 标记API为不可用
-        const apiIndex = apiUrls.value.findIndex(api => api.url === selectedApi.url);
-        if (apiIndex !== -1) {
-            apiUrls.value[apiIndex].available = false;
-            localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+            // 所有API都失败时显示错误信息
+            ElMessage.error('所有API均请求失败，请检查API设置或网络连接');
         }
-
-        ElMessage.error(
-            error.response?.status === 502 ?
-                'API服务器连接失败，请检查API地址是否正确' :
-                '翻译失败，请检查API地址或网络连接'
-        );
     }
 
     translationTime.value = Date.now() - startTime;
