@@ -73,27 +73,29 @@
                             <div class="settings-group-title">语言设置</div>
                             <el-form-item label="默认源语言">
                                 <el-select v-model="defaultSourceLang" placeholder="选择默认源语言" class="settings-select">
-                                    <el-option v-for="lang in enabledSourceLangs"
-                                        :key="lang.value" :label="lang.label" :value="lang.value" />
+                                    <el-option v-for="lang in enabledSourceLangs" :key="lang.value" :label="lang.label"
+                                        :value="lang.value" />
                                 </el-select>
                             </el-form-item>
 
                             <el-form-item label="默认目标语言">
                                 <el-select v-model="defaultTargetLang" placeholder="选择默认目标语言" class="settings-select">
-                                    <el-option v-for="lang in enabledTargetLangs"
-                                        :key="lang.value" :label="lang.label" :value="lang.value" />
+                                    <el-option v-for="lang in enabledTargetLangs" :key="lang.value" :label="lang.label"
+                                        :value="lang.value" />
                                 </el-select>
                             </el-form-item>
 
                             <el-form-item label="输入中文时目标语言">
-                                <el-select v-model="autoTargetLangForChinese" placeholder="选择目标语言" class="settings-select">
+                                <el-select v-model="autoTargetLangForChinese" placeholder="选择目标语言"
+                                    class="settings-select">
                                     <el-option v-for="lang in enabledTargetLangs.filter(l => l.value !== 'ZH')"
                                         :key="lang.value" :label="lang.label" :value="lang.value" />
                                 </el-select>
                             </el-form-item>
 
                             <el-form-item label="输入英文时目标语言">
-                                <el-select v-model="autoTargetLangForEnglish" placeholder="选择目标语言" class="settings-select">
+                                <el-select v-model="autoTargetLangForEnglish" placeholder="选择目标语言"
+                                    class="settings-select">
                                     <el-option
                                         v-for="lang in enabledTargetLangs.filter(l => !['EN', 'EN-GB', 'EN-US'].includes(l.value))"
                                         :key="lang.value" :label="lang.label" :value="lang.value" />
@@ -133,23 +135,14 @@
                         </div>
                         <div class="api-actions">
                             <div class="api-actions-spacer"></div>
-                            <el-button 
-                                type="primary" 
-                                size="small"
-                                @click="checkAllApiAvailability" 
+                            <el-button type="primary" size="small" @click="checkAllApiAvailability"
                                 :loading="isCheckingAllApis">
                                 检查可用性
                             </el-button>
-                            <el-popconfirm 
-                                title="确定要删除所有不可用的API吗？" 
-                                @confirm="removeUnavailableApis"
-                                confirm-button-text="确定" 
-                                cancel-button-text="取消">
+                            <el-popconfirm title="确定要删除所有不可用的API吗？" @confirm="removeUnavailableApis"
+                                confirm-button-text="确定" cancel-button-text="取消">
                                 <template #reference>
-                                    <el-button 
-                                        type="danger" 
-                                        size="small"
-                                        :disabled="!hasUnavailableApis">
+                                    <el-button type="danger" size="small" :disabled="!hasUnavailableApis">
                                         删除不可用
                                     </el-button>
                                 </template>
@@ -222,8 +215,8 @@
                             <div class="settings-group-title">配置管理</div>
                             <el-form-item class="settings-actions">
                                 <el-button type="primary" plain @click="exportSettings">导出配置</el-button>
-                                <el-upload class="settings-upload" action="" :auto-upload="false" :show-file-list="false"
-                                    accept=".json" @change="importSettings">
+                                <el-upload class="settings-upload" action="" :auto-upload="false"
+                                    :show-file-list="false" accept=".json" @change="importSettings">
                                     <el-button type="primary" plain>导入配置</el-button>
                                 </el-upload>
                             </el-form-item>
@@ -275,6 +268,7 @@ const autoTargetLangForChinese = ref('EN');  // 检测到中文时的默认目�
 const autoTargetLangForEnglish = ref('ZH');  // 检测到英文时的默认目标语言
 const defaultSourceLang = ref('AUTO');  // 默认源语言
 const defaultTargetLang = ref('ZH');  // 默认目标语言
+const lastValidText = ref('');  // 上一次的有效输入文本
 
 // 语言设置
 interface Language {
@@ -368,7 +362,7 @@ const formatProxyUrl = (originalUrl: string) => {
         // 去除空格并获取基本信息
         originalUrl = originalUrl.trim();
         const isPageHttps = window.location.protocol === 'https:';
-        
+
         // 提取URL协议和主体部分
         const getUrlParts = (url: string) => {
             const protocolMatch = url.match(/^(https?):\/\//);
@@ -383,16 +377,16 @@ const formatProxyUrl = (originalUrl: string) => {
         const ipMatch = originalUrl.match(ipRegex);
         if (ipMatch) {
             if (isPageHttps && ipMatch[1].toLowerCase() === 'http://') {
-                const {protocol, urlBody} = getUrlParts(originalUrl);
+                const { protocol, urlBody } = getUrlParts(originalUrl);
                 return `/api/${protocol}/${urlBody}`;
             }
             return originalUrl;
         }
 
         // 处理常规URL
-        const {protocol, urlBody} = getUrlParts(originalUrl);
+        const { protocol, urlBody } = getUrlParts(originalUrl);
         const finalUrlBody = urlBody.includes('/') ? urlBody : `${urlBody}/`;
-        
+
         return `/api/${protocol}/${finalUrlBody}`;
 
     } catch (error) {
@@ -944,31 +938,61 @@ const containsEnglish = (text: string): boolean => {
     return /[a-zA-Z]/.test(text);
 };
 
-// 以下为监听器
-// 监听目标语言变化
-watch(targetLang, () => {
-    if (sourceText.value.trim() && !isTranslating.value) {
-        translate();
-    }
-});
+// const hasNewValidInput = (newText: string, oldText: string): boolean => {
+//     // 如果新文本比旧文本短，说明是在删除内容，不需要检查
+//     if (newText.length < oldText.length) {
+//         return false;
+//     }
 
-watch(sourceText, debounce(() => {
+//     // 获取新增的部分
+//     const addedText = newText.slice(oldText.length);
+
+//     // 检查新增的部分是否只包含空白字符和标点符号
+//     const excludePattern = /^[\s\.,，。！？!?;；:：""'''\(\)（）\[\]【】\-_\+=×÷@#$%^&*~`\\/\u2000-\u206F\u3000-\u303F]+$/;
+
+//     const hasValidNewInput = !excludePattern.test(addedText);
+//     console.log("新增文本:", addedText, "是否包含有效输入:", hasValidNewInput);
+
+//     return hasValidNewInput;
+// };
+
+
+// 修改 sourceText 的监听器
+watch(sourceText, debounce(async () => {
     const text = sourceText.value.trim();
 
+    if (isTranslating.value) {
+        return;
+    }
+
+    // 如果输入为空，清空结果
     if (!text) {
         translationResult.value = '';
         alternativeTranslations.value = [];
         alternativeTranslationsText.value = '';
         translationMethod.value = '';
+        translationTime.value = 0;
+        lastValidText.value = '';
         return;
     }
+
+    // 检查新增内容是否需要触发翻译
+    // if (!hasNewValidInput(text, lastValidText.value)) {
+    //     return;
+    // }
+
+    if (text === lastValidText.value) {
+        return;
+    }
+
+    // 更新最后的有效文本
+    lastValidText.value = text;
 
     // 检测中文并自动切换目标语言
     if (containsChinese(text) && ['ZH', 'ZH-HANS', 'ZH-HANT'].includes(targetLang.value)) {
         sourceLang.value = 'AUTO';
         targetLang.value = autoTargetLangForChinese.value;
         ElMessage.success('检测到中文输入，已自动切换目标语言');
-        return;
     }
 
     // 检测英语并自动切换目标语言
@@ -976,13 +1000,13 @@ watch(sourceText, debounce(() => {
         sourceLang.value = 'AUTO';
         targetLang.value = autoTargetLangForEnglish.value;
         ElMessage.success('检测到英语输入，已自动切换目标语言');
-        return;
     }
 
+    // 只有在没有切换语言时才直接翻译
     if (!isTranslating.value) {
-        translate();
+        await translate();
     }
-}, 500));
+}, 1000), { deep: true });
 
 const showSettings = () => {
     settingsVisible.value = true;
@@ -1008,7 +1032,7 @@ watch([autoTargetLangForChinese, autoTargetLangForEnglish], ([newChinese, newEng
 watch([defaultSourceLang, defaultTargetLang], ([newSourceLang, newTargetLang]) => {
     localStorage.setItem('defaultSourceLang', newSourceLang);
     localStorage.setItem('defaultTargetLang', newTargetLang);
-    
+
     // 更新当前语言选择
     sourceLang.value = newSourceLang;
     targetLang.value = newTargetLang;
@@ -1145,9 +1169,12 @@ watch([defaultSourceLang, defaultTargetLang], ([newSourceLang, newTargetLang]) =
     display: flex;
     width: 100%;
     justify-content: flex-end;
-    gap: 8px;  /* 减小按钮之间的间距 */
-    padding: 0;  /* 移除可能的内边距 */
-    margin: 0;   /* 移除可能的外边距 */
+    gap: 8px;
+    /* 减小按钮之间的间距 */
+    padding: 0;
+    /* 移除可能的内边距 */
+    margin: 0;
+    /* 移除可能的外边距 */
 }
 
 .api-actions-spacer {
