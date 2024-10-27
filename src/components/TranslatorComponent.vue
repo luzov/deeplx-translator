@@ -459,58 +459,58 @@ const translate = async () => {
         return;
     }
 
-    // 遍历所有可用的API直到翻译成功
-    for (let i = 0; i < availableApis.length; i++) {
-        const currentApi = availableApis[i];
-        
-        try {
+        // 遍历所有可用的API直到翻译成功
+        for (let i = 0; i < availableApis.length; i++) {
+            const currentApi = availableApis[i];
+            
+            try {
             const response = await makeApiRequest(currentApi.url, {
                 text: sourceText.value,
-                source_lang: sourceLang.value,
-                target_lang: targetLang.value,
+                        source_lang: sourceLang.value,
+                        target_lang: targetLang.value,
             });
 
-            if (response.data && response.data.data) {
-                updateApiStats(currentApi.url, true);
+                if (response.data && response.data.data) {
+                    updateApiStats(currentApi.url, true);
                 // 更新API使用统计
+                    const apiIndex = apiUrls.value.findIndex(api => api.url === currentApi.url);
+                    if (apiIndex !== -1) {
+                        apiUrls.value[apiIndex].useCount = (apiUrls.value[apiIndex].useCount || 0) + 1;
+                        apiUrls.value[apiIndex].lastUsed = Date.now();
+                        localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+                    }
+
+                    translationResult.value = response.data.data;
+                    alternativeTranslations.value = response.data.alternatives || [];
+                    alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
+                    translationMethod.value = response.data.method;
+                
+                break; // 翻译成功，退出循环
+                }
+            } catch (error: any) {
+                updateApiStats(currentApi.url, false);
+                console.error('Translation failed:', error.message);
+
+            // 标记当前API为不可用
                 const apiIndex = apiUrls.value.findIndex(api => api.url === currentApi.url);
                 if (apiIndex !== -1) {
-                    apiUrls.value[apiIndex].useCount = (apiUrls.value[apiIndex].useCount || 0) + 1;
-                    apiUrls.value[apiIndex].lastUsed = Date.now();
+                    apiUrls.value[apiIndex].available = false;
                     localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
                 }
 
-                translationResult.value = response.data.data;
-                alternativeTranslations.value = response.data.alternatives || [];
-                alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
-                translationMethod.value = response.data.method;
-                
-                break; // 翻译成功，退出循环
-            }
-        } catch (error: any) {
-            updateApiStats(currentApi.url, false);
-            console.error('Translation failed:', error.message);
-
-            // 标记当前API为不可用
-            const apiIndex = apiUrls.value.findIndex(api => api.url === currentApi.url);
-            if (apiIndex !== -1) {
-                apiUrls.value[apiIndex].available = false;
-                localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
-            }
-
             // 如果还有其他API可用，提示用户正在切换到下一个API
-            if (i < availableApis.length - 1) {
-                ElMessage.warning(`API "${currentApi.url}" 请求失败，正在尝试使用下一个API...`);
-                continue;
-            }
+                if (i < availableApis.length - 1) {
+                    ElMessage.warning(`API "${currentApi.url}" 请求失败，正在尝试使用下一个API...`);
+                    continue;
+                }
 
             // 所有API都失败时显示错误信息
-            ElMessage.error('所有API均请求失败，请检查API设置或网络连接');
+                ElMessage.error('所有API均请求失败，请检查API设置或网络连接');
+            }
         }
-    }
 
-    translationTime.value = Date.now() - startTime;
-    isTranslating.value = false;
+        translationTime.value = Date.now() - startTime;
+        isTranslating.value = false;
 };
 
 // 添加API函数
@@ -944,24 +944,6 @@ const containsEnglish = (text: string): boolean => {
     return /[a-zA-Z]/.test(text);
 };
 
-// const hasNewValidInput = (newText: string, oldText: string): boolean => {
-//     // 如果新文本比旧文本短，说明是在删除内容，不需要检查
-//     if (newText.length < oldText.length) {
-//         return false;
-//     }
-
-//     // 获取新增的部分
-//     const addedText = newText.slice(oldText.length);
-
-//     // 检查新增的部分是否只包含空白字符和标点符号
-//     const excludePattern = /^[\s\.,，。！？!?;；:：""'''\(\)（）\[\]【】\-_\+=×÷@#$%^&*~`\\/\u2000-\u206F\u3000-\u303F]+$/;
-
-//     const hasValidNewInput = !excludePattern.test(addedText);
-//     console.log("新增文本:", addedText, "是否包含有效输入:", hasValidNewInput);
-
-//     return hasValidNewInput;
-// };
-
 
 // 修改 sourceText 的监听器
 watch(sourceText, debounce(async () => {
@@ -982,11 +964,6 @@ watch(sourceText, debounce(async () => {
         return;
     }
 
-    // 检查新增内容是否需要触发翻译
-    // if (!hasNewValidInput(text, lastValidText.value)) {
-    //     return;
-    // }
-
     if (text === lastValidText.value) {
         return;
     }
@@ -994,11 +971,14 @@ watch(sourceText, debounce(async () => {
     // 更新最后的有效文本
     lastValidText.value = text;
 
+    let shouldTranslate = true;
+
     // 检测中文并自动切换目标语言
     if (containsChinese(text) && ['ZH', 'ZH-HANS', 'ZH-HANT'].includes(targetLang.value)) {
         sourceLang.value = 'AUTO';
         targetLang.value = autoTargetLangForChinese.value;
         ElMessage.success('检测到中文输入，已自动切换目标语言');
+        shouldTranslate = false; // 不在这里翻译，等待 targetLang 的 watch 触发
     }
 
     // 检测英语并自动切换目标语言
@@ -1006,13 +986,35 @@ watch(sourceText, debounce(async () => {
         sourceLang.value = 'AUTO';
         targetLang.value = autoTargetLangForEnglish.value;
         ElMessage.success('检测到英语输入，已自动切换目标语言');
+        shouldTranslate = false; // 不在这里翻译，等待 targetLang 的 watch 触发
     }
 
     // 只有在没有切换语言时才直接翻译
-    if (!isTranslating.value) {
+    if (shouldTranslate && !isTranslating.value) {
         await translate();
     }
-}, 1000), { deep: true });
+}, 800), { deep: true });
+
+// 添加对目标语言变化的监听
+watch(targetLang, async (newValue, oldValue) => {
+    // 如果新值和旧值相同,则不触发翻译
+    if (newValue === oldValue) {
+        return;
+    }
+
+    // 如果源文本为空,则不触发翻译
+    if (!sourceText.value.trim()) {
+        return;
+    }
+
+    // 如果正在翻译中,则不触发新的翻译
+    if (isTranslating.value) {
+        return;
+    }
+
+    // 触发翻译
+    await translate();
+});
 
 const showSettings = () => {
     settingsVisible.value = true;
