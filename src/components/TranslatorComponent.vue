@@ -319,7 +319,7 @@ const sourceLangs = ref<Language[]>([
 
 // 目标语言列表
 const targetLangs = ref<Language[]>([
-    { value: 'ZH', label: '中���', enabled: true },
+    { value: 'ZH', label: '中文', enabled: true },
     { value: 'EN', label: '英语', enabled: true },
     { value: 'EN-US', label: '英语（美国）', enabled: true },
     { value: 'EN-GB', label: '英语（英国）', enabled: true },
