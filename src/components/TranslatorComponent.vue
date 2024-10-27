@@ -309,36 +309,36 @@ const enabledTargetLangs = computed(() => targetLangs.value.filter(lang => lang.
 // 修改格式化API URL的辅助函数
 const formatProxyUrl = (originalUrl: string) => {
     try {
-        // 检查是否是IP地址（可能带端口）的格式
+        // 去除空格并获取基本信息
+        originalUrl = originalUrl.trim();
+        const isPageHttps = window.location.protocol === 'https:';
+        
+        // 提取URL协议和主体部分
+        const getUrlParts = (url: string) => {
+            const protocolMatch = url.match(/^(https?):\/\//);
+            return {
+                protocol: protocolMatch ? protocolMatch[1] : 'http',
+                urlBody: url.replace(/^https?:\/\//, '').replace(/\/$/, '')
+            };
+        };
+
+        // 处理IP地址格式
         const ipRegex = /^(https?:\/\/)((?:\d{1,3}\.){3}\d{1,3})(:\d+)?(\/.*)$/;
         const ipMatch = originalUrl.match(ipRegex);
-
         if (ipMatch) {
-            // 如果是IP地址格式，直接返回原始URL
+            if (isPageHttps && ipMatch[1].toLowerCase() === 'http://') {
+                const {protocol, urlBody} = getUrlParts(originalUrl);
+                return `/api/${protocol}/${urlBody}`;
+            }
             return originalUrl;
         }
 
-        // 其他情况走代理
-        let protocol = 'http';
-        let urlWithoutProtocol = originalUrl;
+        // 处理常规URL
+        const {protocol, urlBody} = getUrlParts(originalUrl);
+        const finalUrlBody = urlBody.includes('/') ? urlBody : `${urlBody}/`;
+        
+        return `/api/${protocol}/${finalUrlBody}`;
 
-        // 检查并提取协议
-        const protocolMatch = originalUrl.match(/^(https?):\/\//);
-        if (protocolMatch) {
-            protocol = protocolMatch[1];
-            urlWithoutProtocol = originalUrl.replace(/^https?:\/\//, '');
-        }
-
-        // 移除末尾的斜杠
-        urlWithoutProtocol = urlWithoutProtocol.replace(/\/$/, '');
-
-        // 确保路径正确
-        if (!urlWithoutProtocol.includes('/')) {
-            urlWithoutProtocol += '/';
-        }
-
-        // 返回格式化后的URL，包含协议信息
-        return `/api/${protocol}/${urlWithoutProtocol}`;
     } catch (error) {
         console.error('URL格式化错误:', error);
         return originalUrl;
@@ -529,9 +529,6 @@ const addApiUrl = async () => {
         ElMessage.warning('请输入 API 地址');
         return;
     }
-
-    // 去除api前后空格
-    newApiUrl.value = newApiUrl.value.trim();
 
     isCheckingApi.value = true;
     try {
