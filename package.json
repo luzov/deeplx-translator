@@ -11,7 +11,7 @@
     "version:minor": "npm version minor",
     "version:major": "npm version major",
     "test": "vue-tsc -b --noEmit && vite build --mode test",
-    "version": "vite build && git add -A dist",
+    "version": "git add package.json package-lock.json",
     "postversion": "git push && git push --tags"
   },
   "dependencies": {
