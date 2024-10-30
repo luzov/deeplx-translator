@@ -441,7 +441,8 @@ const makeApiRequest = async (url: string, data: any, retriesOrSignal?: number |
         });
         return response;
     } catch (error: any) {
-        if (error.name === 'AbortError') {
+        // console.log(error.name)
+        if (error.name === 'CanceledError') {
             throw error; // 直接抛出取消错误
         }
         if (retries > 0 && error.response?.status === 502) {
@@ -534,7 +535,8 @@ const translate = async (isAutoTranslate = false) => {
                 break; // 翻译成功，退出循环
             }
         } catch (error: any) {
-            if (error.name === 'AbortError') {
+            // console.log(error.name)
+            if (error.name === 'CanceledError') {
                 // 请求被取消，不更新统计信息，直接结束
                 console.log('Translation request cancelled');
                 break;
