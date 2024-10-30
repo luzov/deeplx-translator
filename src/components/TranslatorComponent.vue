@@ -862,29 +862,88 @@ const hasUnavailableApis = computed(() => {
     return apiUrls.value.some(api => !api.available);
 });
 
-// 添加复制功能函数
-const copyResult = () => {
-    if (translationResult.value) {
-        navigator.clipboard.writeText(translationResult.value)
-            .then(() => {
-                ElMessage.success('复制成功');
-            })
-            .catch(() => {
-                ElMessage.error('复制失败');
-            });
+// 修改复制功能函数
+const copyResult = async () => {
+    if (!translationResult.value) return;
+    
+    try {
+        // 首先检查是否在安全上下文中
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(translationResult.value);
+            ElMessage.success('复制成功');
+        } else {
+            // 不在安全上下文中，使用后备方案
+            console.log('使用后备复制方案');
+            fallbackCopy(translationResult.value);
+        }
+    } catch (error) {
+        console.error('复制失败:', error);
+        // 捕获到错误时也尝试使用后备方案
+        console.log('尝试使用后备复制方案');
+        fallbackCopy(translationResult.value);
     }
 };
 
-// 添加复制替代翻译的函数
-const copyAlternativeResult = () => {
-    if (alternativeTranslationsText.value) {
-        navigator.clipboard.writeText(alternativeTranslationsText.value)
-            .then(() => {
-                ElMessage.success('复制成功');
-            })
-            .catch(() => {
-                ElMessage.error('复制失败');
-            });
+// 添加后备复制方案
+const fallbackCopy = (text: string) => {
+    try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        
+        // 确保文本区域在视口内但不可见
+        textArea.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        
+        document.body.appendChild(textArea);
+        
+        if (navigator.userAgent.match(/ipad|iphone/i)) {
+            // iOS 设备特殊处理
+            textArea.contentEditable = 'true';
+            textArea.readOnly = false;
+            
+            const range = document.createRange();
+            range.selectNodeContents(textArea);
+            
+            const selection = window.getSelection();
+            if (selection) {
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            textArea.setSelectionRange(0, 999999);
+        } else {
+            // 其他设备
+            textArea.select();
+        }
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (successful) {
+            ElMessage.success('复制成功');
+        } else {
+            throw new Error('execCommand 返回 false');
+        }
+    } catch (err) {
+        console.error('后备复制失败:', err);
+        ElMessage.error('复制失败，请手动复制');
+    }
+};
+
+// 同样修改替代翻译的复制函数
+const copyAlternativeResult = async () => {
+    if (!alternativeTranslationsText.value) return;
+    
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(alternativeTranslationsText.value);
+            ElMessage.success('复制成功');
+        } else {
+            console.log('使用后备复制方案');
+            fallbackCopy(alternativeTranslationsText.value);
+        }
+    } catch (error) {
+        console.error('复制失败:', error);
+        console.log('尝试使用后备复制方案');
+        fallbackCopy(alternativeTranslationsText.value);
     }
 };
 
