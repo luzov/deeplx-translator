@@ -20,12 +20,13 @@
             <el-input 
                 v-model="sourceText" 
                 type="textarea" 
-                :rows="textareaRows"
+                :rows="textareaRows" 
+                :autosize="{ minRows: 8, maxRows: 20 }"
                 resize="vertical"
                 @mousedown="startSync"
-                @mouseup="stopSync"
-                ref="sourceTextarea"
-                placeholder="请输入要翻译的文本"
+                @mouseup="stopSync" 
+                ref="sourceTextarea" 
+                placeholder="请输入要翻译的文本" 
                 class="translation-input" 
             />
 
@@ -42,11 +43,12 @@
                 <el-input 
                     v-model="translationResult" 
                     type="textarea" 
-                    :rows="textareaRows"
+                    :rows="textareaRows" 
+                    :autosize="{ minRows: 8, maxRows: 20 }"
                     resize="vertical"
                     @mousedown="startSync"
-                    @mouseup="stopSync"
-                    ref="resultTextarea"
+                    @mouseup="stopSync" 
+                    ref="resultTextarea" 
                     placeholder="翻译结果" 
                     readonly
                     class="translation-input" 
@@ -55,8 +57,8 @@
         </div>
         <div class="button-container">
             <div class="left-buttons">
-                <el-button class="translate-button" type="primary" plain @click="translate"
-                    :loading="isTranslating" :disabled="!hasSourceText">翻译</el-button>
+                <el-button class="translate-button" type="primary" plain @click="translate" :loading="isTranslating"
+                    :disabled="!hasSourceText">翻译</el-button>
             </div>
             <div class="right-buttons">
                 <el-button class="copy-button" type="success" plain @click="copyResult"
@@ -107,7 +109,8 @@
                             <el-form-item label="输入中文时目标语言">
                                 <el-select v-model="autoTargetLangForChinese" placeholder="选择目标语言"
                                     class="settings-select">
-                                    <el-option v-for="lang in enabledTargetLangs.filter(l => !['ZH-HANS'].includes(l.value))"
+                                    <el-option
+                                        v-for="lang in enabledTargetLangs.filter(l => !['ZH-HANS'].includes(l.value))"
                                         :key="lang.value" :label="lang.label" :value="lang.value" />
                                 </el-select>
                             </el-form-item>
@@ -145,12 +148,8 @@
                         <div class="api-form-container">
                             <el-form :inline="true" class="api-form">
                                 <el-form-item label="API 地址" class="api-input-item">
-                                    <el-input 
-                                        v-model="newApiUrl" 
-                                        placeholder="输入新的 API 地址"
-                                        clearable
-                                        @clear="newApiUrl = ''"
-                                    />
+                                    <el-input v-model="newApiUrl" placeholder="输入新的 API 地址" clearable
+                                        @clear="newApiUrl = ''" />
                                 </el-form-item>
                                 <el-form-item class="api-button-item">
                                     <el-button type="primary" @click="addApiUrl" :loading="isCheckingApi">添加</el-button>
@@ -158,13 +157,11 @@
                             </el-form>
                         </div>
                         <div class="api-actions">
-                            <el-switch
-                                v-model="autoAppendTranslateSuffix"
-                                active-text="自动添加 /translate 后缀"
-                                size="small"
-                            />
+                            <el-switch v-model="autoAppendTranslateSuffix" active-text="自动添加 /translate 后缀"
+                                size="small" />
                             <div class="api-actions-spacer"></div>
-                            <el-button type="primary" size="small" @click="checkAllApiAvailability" :loading="isCheckingAllApis">
+                            <el-button type="primary" size="small" @click="checkAllApiAvailability"
+                                :loading="isCheckingAllApis">
                                 检查可用性
                             </el-button>
                             <el-popconfirm title="确定要删除所有不可用的API吗？" @confirm="removeUnavailableApis"
@@ -265,7 +262,9 @@
 
         <!-- 添加作者信息 -->
         <div class="footer">
-            <span>Powered by Cursor | Created by <a href="https://github.com/luzov" target="_blank">luzov</a></span>
+            <span>
+                Powered by Cursor | Created by <a href="https://github.com/luzov" target="_blank">luzov</a> | v{{ version }}
+            </span>
         </div>
     </div>
 </template>
@@ -275,6 +274,7 @@ import { ref, watch, computed, onMounted, h, reactive, onUnmounted } from 'vue';
 import axios from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Refresh, Setting, Document } from '@element-plus/icons-vue';
+import { version } from '../../package.json';
 
 const sourceText = ref('');  // 源文本
 const translationResult = ref('');  // 翻译结果
@@ -298,6 +298,9 @@ const defaultSourceLang = ref('AUTO');  // 默认源语言
 const defaultTargetLang = ref('ZH-HANS');  // 默认目标语言
 const lastValidText = ref('');  // 上一次的有效输入文本
 const autoAppendTranslateSuffix = ref(true); // 是否自动添加 /translate 后缀，默认开启
+
+// 添加一个取消控制器的引用
+const currentTranslationController = ref<AbortController | null>(null);
 
 // 语言设置
 interface Language {
@@ -423,21 +426,28 @@ const formatProxyUrl = (originalUrl: string) => {
 };
 
 // 修改API请求函数，添加重试逻辑
-const makeApiRequest = async (url: string, data: any, retries = 1): Promise<any> => {
+const makeApiRequest = async (url: string, data: any, retriesOrSignal?: number | AbortSignal, signal?: AbortSignal): Promise<any> => {
+    const retries = typeof retriesOrSignal === 'number' ? retriesOrSignal : 1;
+    const abortSignal = retriesOrSignal instanceof AbortSignal ? retriesOrSignal : signal;
+
     try {
         const proxyUrl = formatProxyUrl(url);
         const response = await axios.post(proxyUrl, data, {
-            timeout: 10000, // 10秒超时
+            timeout: 10000,
             headers: {
                 'Content-Type': 'application/json',
-            }
+            },
+            ...(abortSignal && { signal: abortSignal }),
         });
         return response;
     } catch (error: any) {
+        if (error.name === 'AbortError') {
+            throw error; // 直接抛出取消错误
+        }
         if (retries > 0 && error.response?.status === 502) {
             // 如果是502错误且还有重试次数，等待后重试
             await new Promise(resolve => setTimeout(resolve, 1000));
-            return makeApiRequest(url, data, retries - 1);
+            return makeApiRequest(url, data, retries - 1, signal);
         }
         throw error;
     }
@@ -455,9 +465,18 @@ interface ApiUrlInfo {
 }
 
 // 修改翻译函数
-const translate = async () => {
+const translate = async (isAutoTranslate = false) => {
+    // 如果不是自动翻译且正在翻译中，则不执行
+    if (!isAutoTranslate && isTranslating.value) {
+        return;
+    }
+
     isTranslating.value = true;
     const startTime = Date.now();
+
+    // 创建新的 AbortController
+    currentTranslationController.value = new AbortController();
+    const signal = currentTranslationController.value.signal;
 
     if (apiUrls.value.length === 0) {
         ElMessage.error('没有可供翻译的API，请在右下角设置中添加API');
@@ -486,58 +505,66 @@ const translate = async () => {
         return;
     }
 
-        // 遍历所有可用的API直到翻译成功
-        for (let i = 0; i < availableApis.length; i++) {
-            const currentApi = availableApis[i];
-            
-            try {
+    // 遍历所有可用的API直到翻译成功
+    for (let i = 0; i < availableApis.length; i++) {
+        const currentApi = availableApis[i];
+
+        try {
             const response = await makeApiRequest(currentApi.url, {
                 text: sourceText.value,
-                        source_lang: sourceLang.value,
-                        target_lang: targetLang.value,
-            });
+                source_lang: sourceLang.value,
+                target_lang: targetLang.value,
+            }, signal);
 
-                if (response.data && response.data.data) {
-                    updateApiStats(currentApi.url, true);
+            if (response.data && response.data.data) {
+                updateApiStats(currentApi.url, true);
                 // 更新API使用统计
-                    const apiIndex = apiUrls.value.findIndex(api => api.url === currentApi.url);
-                    if (apiIndex !== -1) {
-                        apiUrls.value[apiIndex].useCount = (apiUrls.value[apiIndex].useCount || 0) + 1;
-                        apiUrls.value[apiIndex].lastUsed = Date.now();
-                        localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
-                    }
-
-                    translationResult.value = response.data.data;
-                    alternativeTranslations.value = response.data.alternatives || [];
-                    alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
-                    translationMethod.value = response.data.method;
-                
-                break; // 翻译成功，退出循环
-                }
-            } catch (error: any) {
-                updateApiStats(currentApi.url, false);
-                console.error('Translation failed:', error.message);
-
-            // 标记当前API为不可用
                 const apiIndex = apiUrls.value.findIndex(api => api.url === currentApi.url);
                 if (apiIndex !== -1) {
-                    apiUrls.value[apiIndex].available = false;
+                    apiUrls.value[apiIndex].useCount = (apiUrls.value[apiIndex].useCount || 0) + 1;
+                    apiUrls.value[apiIndex].lastUsed = Date.now();
                     localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
                 }
 
+                translationResult.value = response.data.data;
+                alternativeTranslations.value = response.data.alternatives || [];
+                alternativeTranslationsText.value = alternativeTranslations.value.join('\n');
+                translationMethod.value = response.data.method;
+
+                break; // 翻译成功，退出循环
+            }
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                // 请求被取消，不更新统计信息，直接结束
+                console.log('Translation request cancelled');
+                break;
+            }
+            
+            // 只有在非取消错误时才更新失败统计
+            updateApiStats(currentApi.url, false);
+            console.error('Translation failed:', error.message);
+
+            // 只有在非取消错误时才标记 API 为不可用
+            const apiIndex = apiUrls.value.findIndex(api => api.url === currentApi.url);
+            if (apiIndex !== -1) {
+                apiUrls.value[apiIndex].available = false;
+                localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+            }
+
             // 如果还有其他API可用，提示用户正在切换到下一个API
-                if (i < availableApis.length - 1) {
-                    ElMessage.warning(`API "${currentApi.url}" 请求失败，正在尝试使用下一个API...`);
-                    continue;
-                }
+            if (i < availableApis.length - 1) {
+                ElMessage.warning(`API "${currentApi.url}" 请求失败，正在尝试使用下一个API...`);
+                continue;
+            }
 
             // 所有API都失败时显示错误信息
-                ElMessage.error('所有API均请求失败，请检查API设置或网络连接');
-            }
+            ElMessage.error('所有API均请求失败，请检查API设置或网络连接');
         }
+    }
 
-        translationTime.value = Date.now() - startTime;
-        isTranslating.value = false;
+    translationTime.value = Date.now() - startTime;
+    isTranslating.value = false;
+    currentTranslationController.value = null;
 };
 
 // 添加API函数
@@ -569,7 +596,7 @@ const addApiUrl = async () => {
             text: 'hello',
             source_lang: 'AUTO',
             target_lang: 'ZH-HANS',
-            });
+        });
 
         if (response.data && response.data.data) {
             apiUrls.value.push({
@@ -581,7 +608,7 @@ const addApiUrl = async () => {
                 successCount: 0,
                 failureCount: 0
             });
-                        localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+            localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
             newApiUrl.value = '';
             ElMessage.success('API 地址添加成功');
         } else {
@@ -775,8 +802,8 @@ const checkAllApiAvailability = async () => {
             try {
                 const response = await makeApiRequest(api.url, {
                     text: 'hello',
-                    source_lang: 'EN',
-                    target_lang: 'ZH',
+                    source_lang: 'AUTO',
+                    target_lang: 'ZH-HANS',
                 });
                 const isAvailable = !!(response.data && response.data.data);
                 apiUrls.value[index].available = isAvailable;
@@ -796,7 +823,7 @@ const checkAllApiAvailability = async () => {
         await Promise.all(promises);
 
         // 保存更新后的状态
-                    localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+        localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
 
         // 显示最终结果
         const availableCount = apiUrls.value.filter(api => api.available).length;
@@ -925,7 +952,7 @@ const importSettings = (file: any) => {
             // 保存到本地存储
             localStorage.setItem('showMethodLabel', JSON.stringify(showMethodLabel.value));
             localStorage.setItem('showTranslationTime', JSON.stringify(showTranslationTime.value));
-                        localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+            localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
             localStorage.setItem('sourceLangs', JSON.stringify(sourceLangs.value));
             localStorage.setItem('targetLangs', JSON.stringify(targetLangs.value));
 
@@ -968,7 +995,7 @@ const updateApiStats = (apiUrl: string, success: boolean) => {
         api.failureCount = (api.failureCount || 0) + 1;
     }
 
-                    localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+    localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
 };
 
 // 防抖函数
@@ -996,10 +1023,6 @@ const containsEnglish = (text: string): boolean => {
 // 修改 sourceText 的监听器
 watch(sourceText, debounce(async () => {
     const text = sourceText.value.trim();
-
-    if (isTranslating.value) {
-        return;
-    }
 
     // 如果输入为空，清空结果
     if (!text) {
@@ -1038,8 +1061,12 @@ watch(sourceText, debounce(async () => {
     }
 
     // 只有在没有切换语言时才直接翻译
-    if (shouldTranslate && !isTranslating.value) {
-        await translate();
+    if (shouldTranslate) {
+        // 取消之前的翻译请求
+        if (currentTranslationController.value) {
+            currentTranslationController.value.abort();
+        }
+        await translate(true); // 传入 true 表示这是自动翻译
     }
 }, 800), { deep: true });
 
@@ -1117,12 +1144,12 @@ const activeTextarea = ref<'source' | 'result' | null>(null);
 const startSync = (event: MouseEvent) => {
     const target = event.target as HTMLElement;
     // 检查是否点击在右下角的 resize 手柄上
-    if (target.tagName === 'TEXTAREA' && 
-        event.offsetX > target.clientWidth - 20 && 
+    if (target.tagName === 'TEXTAREA' &&
+        event.offsetX > target.clientWidth - 20 &&
         event.offsetY > target.clientHeight - 20) {
         isResizing.value = true;
-        activeTextarea.value = (target.closest('.translation-input')?.contains(sourceTextarea.value.$el)) 
-            ? 'source' 
+        activeTextarea.value = (target.closest('.translation-input')?.contains(sourceTextarea.value.$el))
+            ? 'source'
             : 'result';
         document.addEventListener('mousemove', handleMouseMove);
     }
@@ -1140,11 +1167,11 @@ const stopSync = () => {
 // 处理鼠标移动
 const handleMouseMove = () => {
     if (!isResizing.value || !activeTextarea.value) return;
-    
+
     requestAnimationFrame(() => {
         const sourceEl = sourceTextarea.value.$el.querySelector('textarea');
         const resultEl = resultTextarea.value.$el.querySelector('textarea');
-        
+
         if (sourceEl && resultEl) {
             if (activeTextarea.value === 'source') {
                 resultEl.style.height = sourceEl.style.height;
@@ -1456,7 +1483,7 @@ onUnmounted(() => {
 /* 修改文本框样式以支持拖动 */
 .translation-input :deep(textarea) {
     resize: vertical;
-    min-height: 200px;  /* 设置最小高度 */
-    max-height: 800px;  /* 设置最大高度 */
+    /* min-height: 200px; 删除这行 */
+    /* max-height: 800px; 删除这行 */
 }
 </style>
