@@ -17,18 +17,9 @@
         </div>
 
         <div class="translation-area">
-            <el-input 
-                v-model="sourceText" 
-                type="textarea" 
-                :rows="textareaRows" 
-                :autosize="{ minRows: 8, maxRows: 20 }"
-                resize="vertical"
-                @mousedown="startSync"
-                @mouseup="stopSync" 
-                ref="sourceTextarea" 
-                placeholder="请输入要翻译的文本" 
-                class="translation-input" 
-            />
+            <el-input v-model="sourceText" type="textarea" :rows="textareaRows" :autosize="{ minRows: 8, maxRows: 20 }"
+                resize="vertical" @mousedown="startSync" @mouseup="stopSync" ref="sourceTextarea"
+                placeholder="请输入要翻译的文本" class="translation-input" />
 
             <div class="translation-result">
                 <div class="labels-container">
@@ -40,19 +31,9 @@
                         {{ translationMethod }}
                     </el-tag>
                 </div>
-                <el-input 
-                    v-model="translationResult" 
-                    type="textarea" 
-                    :rows="textareaRows" 
-                    :autosize="{ minRows: 8, maxRows: 20 }"
-                    resize="vertical"
-                    @mousedown="startSync"
-                    @mouseup="stopSync" 
-                    ref="resultTextarea" 
-                    placeholder="翻译结果" 
-                    readonly
-                    class="translation-input" 
-                />
+                <el-input v-model="translationResult" type="textarea" :rows="textareaRows"
+                    :autosize="{ minRows: 8, maxRows: 20 }" resize="vertical" @mousedown="startSync" @mouseup="stopSync"
+                    ref="resultTextarea" placeholder="翻译结果" readonly class="translation-input" />
             </div>
         </div>
         <div class="button-container">
@@ -263,7 +244,8 @@
         <!-- 添加作者信息 -->
         <div class="footer">
             <span>
-                Powered by Cursor | Created by <a href="https://github.com/luzov" target="_blank">luzov</a> | v{{ version }}
+                Powered by Cursor | Created by <a href="https://github.com/luzov" target="_blank">luzov</a> | v{{
+                version }}
             </span>
         </div>
     </div>
@@ -541,7 +523,7 @@ const translate = async (isAutoTranslate = false) => {
                 console.log('Translation request cancelled');
                 break;
             }
-            
+
             // 只有在非取消错误时才更新失败统计
             updateApiStats(currentApi.url, false);
             console.error('Translation failed:', error.message);
@@ -629,12 +611,37 @@ const removeApiUrl = (index: number) => {
     localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
 };
 
+// 添加语言映射关系
+const languageMapping: { [key: string]: string } = {
+    // 源语言 -> 目标语言
+    'ZH': 'ZH-HANS',
+    'EN': 'EN-US',
+    // 目标语言 -> 源语言
+    'ZH-HANS': 'ZH',
+    'EN-US': 'EN'
+};
+
+// 简化检查语言等同的函数
+const isEquivalentLanguage = (lang1: string, lang2: string): boolean => {
+    if (lang1 === lang2) return true;
+    return languageMapping[lang1] === lang2 || languageMapping[lang2] === lang1;
+};
+
+// 修改交换语言函数
 const swapLanguages = () => {
-    if (sourceLang.value === 'AUTO' || targetLang.value === 'AUTO') {
-        ElMessage.warning('自动检测不能交换哦！');
+    if (sourceLang.value === 'AUTO') {
+        ElMessage.warning('自动检测语言无法交换');
         return;
     }
-    [sourceLang.value, targetLang.value] = [targetLang.value, sourceLang.value];
+
+    if (isEquivalentLanguage(sourceLang.value, targetLang.value)) {
+        ElMessage.warning('源语言和目标语言相同，无需交换');
+        return;
+    }
+
+    const tempSourceLang = sourceLang.value;
+    sourceLang.value = targetLang.value in languageMapping ? languageMapping[targetLang.value] : targetLang.value;
+    targetLang.value = tempSourceLang in languageMapping ? languageMapping[tempSourceLang] : tempSourceLang;
 };
 
 const clearAll = () => {
