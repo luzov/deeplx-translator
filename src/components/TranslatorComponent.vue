@@ -17,8 +17,17 @@
         </div>
 
         <div class="translation-area">
-            <el-input v-model="sourceText" type="textarea" :rows="12" placeholder="请输入要翻译的文本"
-                class="translation-input" />
+            <el-input 
+                v-model="sourceText" 
+                type="textarea" 
+                :rows="textareaRows"
+                resize="vertical"
+                @mousedown="startSync"
+                @mouseup="stopSync"
+                ref="sourceTextarea"
+                placeholder="请输入要翻译的文本"
+                class="translation-input" 
+            />
 
             <div class="translation-result">
                 <div class="labels-container">
@@ -30,14 +39,24 @@
                         {{ translationMethod }}
                     </el-tag>
                 </div>
-                <el-input v-model="translationResult" type="textarea" :rows="12" placeholder="翻译结果" readonly
-                    class="translation-input" />
+                <el-input 
+                    v-model="translationResult" 
+                    type="textarea" 
+                    :rows="textareaRows"
+                    resize="vertical"
+                    @mousedown="startSync"
+                    @mouseup="stopSync"
+                    ref="resultTextarea"
+                    placeholder="翻译结果" 
+                    readonly
+                    class="translation-input" 
+                />
             </div>
         </div>
         <div class="button-container">
             <div class="left-buttons">
                 <el-button class="translate-button" type="primary" plain @click="translate"
-                    :loading="isTranslating">翻译</el-button>
+                    :loading="isTranslating" :disabled="!hasSourceText">翻译</el-button>
             </div>
             <div class="right-buttons">
                 <el-button class="copy-button" type="success" plain @click="copyResult"
@@ -88,7 +107,7 @@
                             <el-form-item label="输入中文时目标语言">
                                 <el-select v-model="autoTargetLangForChinese" placeholder="选择目标语言"
                                     class="settings-select">
-                                    <el-option v-for="lang in enabledTargetLangs.filter(l => l.value !== 'ZH')"
+                                    <el-option v-for="lang in enabledTargetLangs.filter(l => !['ZH-HANS'].includes(l.value))"
                                         :key="lang.value" :label="lang.label" :value="lang.value" />
                                 </el-select>
                             </el-form-item>
@@ -97,7 +116,7 @@
                                 <el-select v-model="autoTargetLangForEnglish" placeholder="选择目标语言"
                                     class="settings-select">
                                     <el-option
-                                        v-for="lang in enabledTargetLangs.filter(l => !['EN', 'EN-GB', 'EN-US'].includes(l.value))"
+                                        v-for="lang in enabledTargetLangs.filter(l => !['EN-US'].includes(l.value))"
                                         :key="lang.value" :label="lang.label" :value="lang.value" />
                                 </el-select>
                             </el-form-item>
@@ -126,7 +145,12 @@
                         <div class="api-form-container">
                             <el-form :inline="true" class="api-form">
                                 <el-form-item label="API 地址" class="api-input-item">
-                                    <el-input v-model="newApiUrl" placeholder="输入新的 API 地址" />
+                                    <el-input 
+                                        v-model="newApiUrl" 
+                                        placeholder="输入新的 API 地址"
+                                        clearable
+                                        @clear="newApiUrl = ''"
+                                    />
                                 </el-form-item>
                                 <el-form-item class="api-button-item">
                                     <el-button type="primary" @click="addApiUrl" :loading="isCheckingApi">添加</el-button>
@@ -134,9 +158,13 @@
                             </el-form>
                         </div>
                         <div class="api-actions">
+                            <el-switch
+                                v-model="autoAppendTranslateSuffix"
+                                active-text="自动添加 /translate 后缀"
+                                size="small"
+                            />
                             <div class="api-actions-spacer"></div>
-                            <el-button type="primary" size="small" @click="checkAllApiAvailability"
-                                :loading="isCheckingAllApis">
+                            <el-button type="primary" size="small" @click="checkAllApiAvailability" :loading="isCheckingAllApis">
                                 检查可用性
                             </el-button>
                             <el-popconfirm title="确定要删除所有不可用的API吗？" @confirm="removeUnavailableApis"
@@ -243,7 +271,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch, computed, onMounted, h, reactive } from 'vue';
+import { ref, watch, computed, onMounted, h, reactive, onUnmounted } from 'vue';
 import axios from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Refresh, Setting, Document } from '@element-plus/icons-vue';
@@ -258,17 +286,18 @@ const settingsVisible = ref(false); // 设置对话框是否可见
 const newApiUrl = ref('');  // 新API地址
 const apiUrls = ref<{ url: string; method: string; available: boolean; useCount: number; lastUsed: number; successCount: number; failureCount: number }[]>([]); // API列表
 const sourceLang = ref('AUTO');  // 源语言
-const targetLang = ref('ZH');  // 目标语言
+const targetLang = ref('ZH-HANS');  // 目标语言
 const showMethodLabel = ref(true);  // 显示翻译引擎标签
 const isCheckingApi = ref(false);  // 检查API可用性
 const isCheckingAllApis = ref(false);   // 检查API可用性
 const showTranslationTime = ref(true);  // 显示翻译用时
 const translationTime = ref(0); // 翻译用时
-const autoTargetLangForChinese = ref('EN');  // 检测到中文时的默认目标语言
-const autoTargetLangForEnglish = ref('ZH');  // 检测到英文时的默认目标语言
+const autoTargetLangForChinese = ref('EN-US');  // 检测到中文时的默认目标语言
+const autoTargetLangForEnglish = ref('ZH-HANS');  // 检测到英文时的默认目标语言
 const defaultSourceLang = ref('AUTO');  // 默认源语言
-const defaultTargetLang = ref('ZH');  // 默认目标语言
+const defaultTargetLang = ref('ZH-HANS');  // 默认目标语言
 const lastValidText = ref('');  // 上一次的有效输入文本
+const autoAppendTranslateSuffix = ref(true); // 是否自动添加 /translate 后缀，默认开启
 
 // 语言设置
 interface Language {
@@ -313,10 +342,9 @@ const sourceLangs = ref<Language[]>([
 
 // 目标语言列表
 const targetLangs = ref<Language[]>([
-    { value: 'ZH', label: '中文', enabled: true },
-    { value: 'EN', label: '英语', enabled: true },
+    { value: 'ZH-HANS', label: '中文（简体）', enabled: true },
     { value: 'EN-US', label: '英语（美国）', enabled: true },
-    { value: 'EN-GB', label: '英语（英国）', enabled: true },
+    { value: 'EN-GB', label: '英语（英国）', enabled: false },
     { value: 'JA', label: '日语', enabled: true },
     { value: 'KO', label: '韩语', enabled: true },
     { value: 'FR', label: '法语', enabled: true },
@@ -346,7 +374,6 @@ const targetLangs = ref<Language[]>([
     { value: 'SV', label: '瑞典语', enabled: false },
     { value: 'TR', label: '土耳其语', enabled: false },
     { value: 'UK', label: '乌克兰语', enabled: false },
-    { value: 'ZH-HANS', label: '中文（简体）', enabled: false },
     { value: 'ZH-HANT', label: '中文（繁体）', enabled: false },
 ]);
 
@@ -520,17 +547,33 @@ const addApiUrl = async () => {
         return;
     }
 
+    // 处理 URL
+    let processedUrl = newApiUrl.value.trim().replace(/\/$/, ''); // 移除末尾的斜杠
+    if (autoAppendTranslateSuffix.value && !processedUrl.toLowerCase().endsWith('/translate')) {
+        processedUrl += '/translate';
+    }
+
+    const exists = apiUrls.value.some(api => {
+        const existingUrl = api.url.trim().replace(/\/$/, '');
+        return existingUrl.toLowerCase() === processedUrl.toLowerCase();
+    });
+
+    if (exists) {
+        ElMessage.warning('该 API 地址已存在');
+        return;
+    }
+
     isCheckingApi.value = true;
     try {
-        const response = await makeApiRequest(newApiUrl.value, {
+        const response = await makeApiRequest(processedUrl, {
             text: 'hello',
-            source_lang: 'EN',
-            target_lang: 'ZH',
-        });
+            source_lang: 'AUTO',
+            target_lang: 'ZH-HANS',
+            });
 
         if (response.data && response.data.data) {
             apiUrls.value.push({
-                url: newApiUrl.value,
+                url: processedUrl,
                 method: response.data.method || 'Unknown',
                 available: true,
                 useCount: 0,
@@ -538,7 +581,7 @@ const addApiUrl = async () => {
                 successCount: 0,
                 failureCount: 0
             });
-            localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+                        localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
             newApiUrl.value = '';
             ElMessage.success('API 地址添加成功');
         } else {
@@ -611,6 +654,11 @@ onMounted(() => {
     if (savedDefaultTargetLang) {
         defaultTargetLang.value = savedDefaultTargetLang;
         targetLang.value = savedDefaultTargetLang; // 设置初始目标语言
+    }
+
+    const savedAutoAppendTranslateSuffix = localStorage.getItem('autoAppendTranslateSuffix');
+    if (savedAutoAppendTranslateSuffix !== null) {
+        autoAppendTranslateSuffix.value = JSON.parse(savedAutoAppendTranslateSuffix);
     }
 });
 
@@ -748,7 +796,7 @@ const checkAllApiAvailability = async () => {
         await Promise.all(promises);
 
         // 保存更新后的状态
-        localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+                    localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
 
         // 显示最终结果
         const availableCount = apiUrls.value.filter(api => api.available).length;
@@ -877,7 +925,7 @@ const importSettings = (file: any) => {
             // 保存到本地存储
             localStorage.setItem('showMethodLabel', JSON.stringify(showMethodLabel.value));
             localStorage.setItem('showTranslationTime', JSON.stringify(showTranslationTime.value));
-            localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+                        localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
             localStorage.setItem('sourceLangs', JSON.stringify(sourceLangs.value));
             localStorage.setItem('targetLangs', JSON.stringify(targetLangs.value));
 
@@ -920,7 +968,7 @@ const updateApiStats = (apiUrl: string, success: boolean) => {
         api.failureCount = (api.failureCount || 0) + 1;
     }
 
-    localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
+                    localStorage.setItem('apiUrls', JSON.stringify(apiUrls.value));
 };
 
 // 防抖函数
@@ -974,7 +1022,7 @@ watch(sourceText, debounce(async () => {
     let shouldTranslate = true;
 
     // 检测中文并自动切换目标语言
-    if (containsChinese(text) && ['ZH', 'ZH-HANS', 'ZH-HANT'].includes(targetLang.value)) {
+    if (containsChinese(text) && ['ZH-HANS', 'ZH-HANT'].includes(targetLang.value)) {
         sourceLang.value = 'AUTO';
         targetLang.value = autoTargetLangForChinese.value;
         ElMessage.success('检测到中文输入，已自动切换目标语言');
@@ -982,7 +1030,7 @@ watch(sourceText, debounce(async () => {
     }
 
     // 检测英语并自动切换目标语言
-    if (containsEnglish(text) && ['EN', 'EN-GB', 'EN-US'].includes(targetLang.value)) {
+    if (containsEnglish(text) && ['EN-GB', 'EN-US'].includes(targetLang.value)) {
         sourceLang.value = 'AUTO';
         targetLang.value = autoTargetLangForEnglish.value;
         ElMessage.success('检测到英语输入，已自动切换目标语言');
@@ -1046,6 +1094,72 @@ watch([defaultSourceLang, defaultTargetLang], ([newSourceLang, newTargetLang]) =
     targetLang.value = newTargetLang;
 });
 
+// 监听设置变化并保存
+watch(autoAppendTranslateSuffix, (newValue) => {
+    localStorage.setItem('autoAppendTranslateSuffix', JSON.stringify(newValue));
+});
+
+// 添加计算属性检查源文本是否为空
+const hasSourceText = computed(() => {
+    return sourceText.value.trim().length > 0;
+});
+
+// 添加新的响应式变量
+const textareaRows = ref(12);
+const sourceTextarea = ref();
+const resultTextarea = ref();
+
+// 添加新的响应式变量来跟踪同步状态
+const isResizing = ref(false);
+const activeTextarea = ref<'source' | 'result' | null>(null);
+
+// 开始同步
+const startSync = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    // 检查是否点击在右下角的 resize 手柄上
+    if (target.tagName === 'TEXTAREA' && 
+        event.offsetX > target.clientWidth - 20 && 
+        event.offsetY > target.clientHeight - 20) {
+        isResizing.value = true;
+        activeTextarea.value = (target.closest('.translation-input')?.contains(sourceTextarea.value.$el)) 
+            ? 'source' 
+            : 'result';
+        document.addEventListener('mousemove', handleMouseMove);
+    }
+};
+
+// 停止同步
+const stopSync = () => {
+    if (isResizing.value) {
+        isResizing.value = false;
+        activeTextarea.value = null;
+        document.removeEventListener('mousemove', handleMouseMove);
+    }
+};
+
+// 处理鼠标移动
+const handleMouseMove = () => {
+    if (!isResizing.value || !activeTextarea.value) return;
+    
+    requestAnimationFrame(() => {
+        const sourceEl = sourceTextarea.value.$el.querySelector('textarea');
+        const resultEl = resultTextarea.value.$el.querySelector('textarea');
+        
+        if (sourceEl && resultEl) {
+            if (activeTextarea.value === 'source') {
+                resultEl.style.height = sourceEl.style.height;
+            } else {
+                sourceEl.style.height = resultEl.style.height;
+            }
+        }
+    });
+};
+
+// 组件卸载时清理事件监听
+onUnmounted(() => {
+    document.removeEventListener('mousemove', handleMouseMove);
+});
+
 </script>
 
 <style scoped>
@@ -1066,7 +1180,7 @@ watch([defaultSourceLang, defaultTargetLang], ([newSourceLang, newTargetLang]) =
 
 .swap-button {
     margin: 0 10px;
-    /* 调整交换按钮的间距 */
+    /* 调交换按钮的间距 */
 }
 
 .translation-area {
@@ -1177,12 +1291,10 @@ watch([defaultSourceLang, defaultTargetLang], ([newSourceLang, newTargetLang]) =
     display: flex;
     width: 100%;
     justify-content: flex-end;
+    align-items: center;
     gap: 8px;
-    /* 减小按钮之间的间距 */
     padding: 0;
-    /* 移除可能的内边距 */
     margin: 0;
-    /* 移除可能的外边距 */
 }
 
 .api-actions-spacer {
@@ -1339,5 +1451,12 @@ watch([defaultSourceLang, defaultTargetLang], ([newSourceLang, newTargetLang]) =
 /* 开关组件样式调整 */
 .settings-form :deep(.el-switch) {
     margin-right: auto;
+}
+
+/* 修改文本框样式以支持拖动 */
+.translation-input :deep(textarea) {
+    resize: vertical;
+    min-height: 200px;  /* 设置最小高度 */
+    max-height: 800px;  /* 设置最大高度 */
 }
 </style>
