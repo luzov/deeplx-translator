@@ -10,8 +10,8 @@
     "version:patch": "npm version patch",
     "version:minor": "npm version minor",
     "version:major": "npm version major",
-    "preversion": "npm test",
-    "version": "npm run build && git add -A dist",
+    "test": "vue-tsc -b --noEmit && vite build --mode test",
+    "version": "vite build && git add -A dist",
     "postversion": "git push && git push --tags"
   },
   "dependencies": {
